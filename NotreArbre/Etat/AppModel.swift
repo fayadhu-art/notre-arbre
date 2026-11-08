@@ -14,6 +14,8 @@ final class AppModel {
     /// Fiche à modifier (date ou village manquant).
     var edition: UUID?
     var objectifAtteint = false
+    /// Couple dont on choisit les enfants.
+    var couple: IdentifiantCouple?
     var erreur: String?
 
     let calendrier = Calendar.current

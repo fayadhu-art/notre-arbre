@@ -17,41 +17,20 @@ struct FormulaireAjoutView: View {
     /// Enfants déjà dans l'arbre, eus avec le nouveau conjoint.
     @State private var enfantsCommuns: Set<UUID> = []
     @State private var nouveauxEnfants: [NouvelEnfant] = []
+    @State private var existantsChoisis: Set<UUID> = []
     @FocusState private var champPrenom: Bool
 
     var body: some View {
         let sujet = model.famille.personne(ajout.pour)
         NavigationStack {
             Form {
-                Section {
-                    TextField("Prénom", text: $prenom)
-                        .textContentType(.givenName)
-                        .focused($champPrenom)
-                    TextField("Nom", text: $nom)
-                        .textContentType(.familyName)
-                        .onChange(of: nom) { proposerParentsSelonNom() }
-                    if ajout.lien != .pere && ajout.lien != .mere {
-                        Picker("Sexe", selection: $sexe) {
-                            Text("Homme").tag(Sexe.homme)
-                            Text("Femme").tag(Sexe.femme)
-                            Text("Je ne sais pas").tag(Sexe.inconnu)
-                        }
-                    }
-                } header: {
-                    Text(titre(sujet))
-                } footer: {
-                    Text("Seuls le prénom et le nom sont obligatoires.")
-                }
-                if !optionsParents.isEmpty {
-                    Section {
-                        Picker(ajout.lien == .enfant ? "Autre parent" : "Parents en commun", selection: $choixParents) {
-                            ForEach(optionsParents, id: \.cle) { Text($0.titre).tag($0.cle) }
-                        }
-                        .pickerStyle(.inline)
-                        .labelsHidden()
-                    } header: {
-                        Text(ajout.lien == .enfant ? "Qui est l'autre parent ?" : "Même père et même mère ?")
-                    }
+                if ajout.lien == .enfant {
+                    sectionParents
+                    sectionExistants
+                    sectionIdentite
+                } else {
+                    sectionIdentite
+                    sectionParents
                 }
                 if ajout.lien == .conjoint {
                     if !model.famille.enfants(de: ajout.pour).isEmpty {
@@ -70,9 +49,10 @@ struct FormulaireAjoutView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Annuler") { fermer() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Enregistrer") { enregistrer() }
-                        .disabled(prenom.trimmingCharacters(in: .whitespaces).isEmpty || nom.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .disabled(!nomsRemplis && existantsChoisis.isEmpty)
                 }
             }
+            .onChange(of: choixParents) { existantsChoisis = [] }
             .onAppear {
                 switch ajout.lien {
                 case .pere: sexe = .homme
@@ -83,6 +63,70 @@ struct FormulaireAjoutView: View {
                 }
                 if choixParents.isEmpty { choixParents = optionsParents.first?.cle ?? "" }
                 champPrenom = true
+            }
+        }
+    }
+
+    private var sectionIdentite: some View {
+        Section {
+            TextField("Prénom", text: $prenom)
+                .textContentType(.givenName)
+                .focused($champPrenom)
+            TextField("Nom", text: $nom)
+                .textContentType(.familyName)
+                .onChange(of: nom) { proposerParentsSelonNom() }
+            if ajout.lien != .pere && ajout.lien != .mere {
+                Picker("Sexe", selection: $sexe) {
+                    Text("Homme").tag(Sexe.homme)
+                    Text("Femme").tag(Sexe.femme)
+                    Text("Je ne sais pas").tag(Sexe.inconnu)
+                }
+            }
+        } header: {
+            Text(titre(model.famille.personne(ajout.pour)))
+        } footer: {
+            Text(ajout.lien == .enfant && !enfantsExistants.isEmpty ? "Pour un nouvel enfant : le prénom et le nom sont obligatoires." : "Seuls le prénom et le nom sont obligatoires.")
+        }
+    }
+
+    @ViewBuilder
+    private var sectionParents: some View {
+        if !optionsParents.isEmpty {
+            Section {
+                Picker(ajout.lien == .enfant ? "Autre parent" : "Parents en commun", selection: $choixParents) {
+                    ForEach(optionsParents, id: \.cle) { Text($0.titre).tag($0.cle) }
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            } header: {
+                Text(ajout.lien == .enfant ? "Qui est l'autre parent ?" : "Même père et même mère ?")
+            }
+        }
+    }
+
+    /// Enfants de l'autre parent choisi qui ne sont pas encore reliés à la personne touchée.
+    private var enfantsExistants: [Personne] {
+        guard ajout.lien == .enfant, let autre = UUID(uuidString: choixParents) else { return [] }
+        let f = model.famille
+        return f.enfants(de: autre).filter { e in !f.parents(de: e.id).contains { $0.id == ajout.pour } }
+    }
+
+    @ViewBuilder
+    private var sectionExistants: some View {
+        let liste = enfantsExistants
+        if !liste.isEmpty {
+            Section {
+                ForEach(liste) { e in
+                    Toggle(isOn: Binding(get: { existantsChoisis.contains(e.id) },
+                                         set: { if $0 { existantsChoisis.insert(e.id) } else { existantsChoisis.remove(e.id) } })) {
+                        Text(e.nomComplet)
+                    }
+                    .tint(Color.turquoise)
+                }
+            } header: {
+                Text("Déjà dans l'arbre ?")
+            } footer: {
+                Text("Coche l'enfant s'il est déjà dans l'arbre : il sera relié aux deux parents, sans le créer une deuxième fois.")
             }
         }
     }
@@ -140,7 +184,17 @@ struct FormulaireAjoutView: View {
         }
     }
 
+    private var nomsRemplis: Bool {
+        !prenom.trimmingCharacters(in: .whitespaces).isEmpty && !nom.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
     private func enregistrer() {
+        if !existantsChoisis.isEmpty, let autre = UUID(uuidString: choixParents) {
+            let f = model.famille
+            let dejaLies = f.enfants(de: autre).filter { e in f.parents(de: e.id).contains { $0.id == ajout.pour } }.map(\.id)
+            model.definirEnfants(de: autre, avec: ajout.pour, Set(dejaLies).union(existantsChoisis))
+        }
+        guard nomsRemplis else { fermer(); return }
         let p = Personne(prenom: prenom.trimmingCharacters(in: .whitespaces).majusculeInitiale,
                          nom: nom.trimmingCharacters(in: .whitespaces),
                          sexe: sexe,
@@ -160,9 +214,18 @@ struct MenuAjout: View {
     let id: UUID
 
     var body: some View {
+        let f = model.famille
         ForEach(model.liensPossibles(id), id: \.self) { l in
             Button { model.ajout = Ajout(pour: id, lien: l) } label: {
-                Label(l.action(pour: model.famille.personne(id), famille: model.famille), systemImage: l.icone)
+                Label(l.action(pour: f.personne(id), famille: f), systemImage: l.icone)
+            }
+        }
+        ForEach(f.conjoints(de: id)) { c in
+            Button {
+                let sujet = f.estDeLaFamille(id) ? id : c.id
+                model.couple = IdentifiantCouple(sujet: sujet, conjoint: sujet == id ? c.id : id)
+            } label: {
+                Label("Enfants avec \(c.prenom)", systemImage: "figure.2.and.child.holdinghands")
             }
         }
     }
@@ -229,6 +292,7 @@ struct EnfantsDuCoupleView: View {
                     }
                 }
             }
+            .onChange(of: choixParents) { existantsChoisis = [] }
             .onAppear {
                 choisis = Set(f.enfants(de: sujet).filter { e in f.parents(de: e.id).contains { $0.id == conjoint } }.map(\.id))
             }

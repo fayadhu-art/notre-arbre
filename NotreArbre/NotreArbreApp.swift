@@ -40,6 +40,9 @@ struct RacineView: View {
         .sheet(item: Binding(get: { model.edition.map(IdentifiantFiche.init) }, set: { model.edition = $0?.id })) { e in
             if let p = model.famille.personne(e.id) { EditionView(personne: p, supprimer: {}).environment(model) }
         }
+        .sheet(item: $model.couple) { c in
+            EnfantsDuCoupleView(sujet: c.sujet, conjoint: c.conjoint).environment(model)
+        }
         .fullScreenCover(isPresented: $model.objectifAtteint) {
             ObjectifAtteintView(terminer: { model.objectifAtteint = false; model.onglet = .accueil },
                                 continuer: { model.objectifAtteint = false })
