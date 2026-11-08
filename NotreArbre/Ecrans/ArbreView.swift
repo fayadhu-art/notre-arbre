@@ -12,6 +12,15 @@ struct ArbreDessin: View {
     var pourImpression = false
     var surPersonne: ((UUID) -> Void)? = nil
     var surATrouver: ((Noeud) -> Void)? = nil
+    /// Personne dont on affiche uniquement les liens (le reste de l'arbre est estompé).
+    var focus: UUID? = nil
+    var surNom: ((UUID) -> Void)? = nil
+
+    private func visible(_ id: UUID?) -> Bool {
+        guard let focus else { return true }
+        guard let id else { return false }
+        return famille.lienDirect(de: id, avec: focus) != nil
+    }
 
     var body: some View {
         let d = disposer(famille, largeurNoeud: Self.largeur, ecartGeneration: Self.ecart)
@@ -20,11 +29,17 @@ struct ArbreDessin: View {
             ForEach(Array(Set(d.traits.map(\.groupe))).sorted(), id: \.self) { g in
                 let couleur = Self.palette[g % Self.palette.count]
                 Path { p in
-                    for t in d.traits where t.groupe == g && !t.pointille {
+                    for t in d.traits where t.groupe == g && !t.pointille && (focus == nil || t.personnes.contains(focus!)) {
                         p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
                     }
                 }
                 .stroke(couleur.opacity(0.8), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                Path { p in
+                    for t in d.traits where t.groupe == g && !t.pointille && focus != nil && !t.personnes.contains(focus!) {
+                        p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
+                    }
+                }
+                .stroke(couleur.opacity(0.12), style: StrokeStyle(lineWidth: 2))
                 Path { p in
                     for t in d.traits where t.groupe == g && t.pointille {
                         p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
@@ -34,6 +49,7 @@ struct ArbreDessin: View {
             }
 
             ForEach(d.noeuds, id: \.cle) { n in
+              Group {
                 cercle(n).position(x: n.x, y: n.y)
                 Text(n.libelle)
                     .font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.encre)
@@ -47,13 +63,25 @@ struct ArbreDessin: View {
                 if let id = n.id {
                     let b = famille.branche(de: id)
                     let alliance = !famille.estDeLaFamille(id)
-                    Text(famille.parente(de: id))
+                    Text(focus.flatMap { famille.lienDirect(de: id, avec: $0) } ?? famille.parente(de: id))
                         .font(.system(size: 11, weight: alliance ? .medium : .semibold))
                         .italic(alliance)
                         .foregroundStyle(alliance ? Color.gris : (b == .pere ? Color.corailTexte : (b == .mere ? Color.violetTexte : Color.turquoise)))
                         .lineLimit(1).minimumScaleFactor(0.7).frame(width: Self.largeur)
                         .position(x: n.x, y: n.y + 75)
                 }
+                // Toucher le nom : affiche uniquement les liens de cette personne.
+                if let id = n.id {
+                    Color.clear
+                        .frame(width: Self.largeur, height: 52)
+                        .contentShape(Rectangle())
+                        .position(x: n.x, y: n.y + 58)
+                        .onTapGesture { surNom?(id) }
+                        .accessibilityLabel("Voir les liens de \(n.libelle)")
+                        .accessibilityAddTraits(.isButton)
+                }
+              }
+              .opacity(visible(n.id) ? 1 : 0.15)
             }
         }
         .frame(width: d.taille.0, height: d.taille.1, alignment: .topLeading)
@@ -108,6 +136,7 @@ struct ArbreView: View {
     @State private var zoomDepart: CGFloat = 1
     @State private var fiche: UUID?
     @State private var choix: UUID?
+    @State private var focus: UUID?
     @State private var affiche = false
 
     var body: some View {
@@ -145,7 +174,9 @@ struct ArbreView: View {
                             surATrouver: { n in
                                 guard let pour = n.pour else { return }
                                 model.ajout = Ajout(pour: pour, lien: n.role == .femme ? .mere : .pere)
-                            })
+                            },
+                            focus: focus,
+                            surNom: { id in withAnimation(.easeInOut(duration: 0.25)) { focus = focus == id ? nil : id } })
                     .scaleEffect(zoom, anchor: .topLeading)
                     .frame(width: d.taille.0 * zoom, height: d.taille.1 * zoom, alignment: .topLeading)
                     .padding(.horizontal, 20)
@@ -158,6 +189,21 @@ struct ArbreView: View {
                     .onChanged { zoom = min(2.5, max(0.4, zoomDepart * $0.magnification)) }
                     .onEnded { _ in zoomDepart = zoom }
             )
+        }
+        .overlay(alignment: .bottom) {
+            if let f = focus, let p = model.famille.personne(f) {
+                Button { withAnimation(.easeInOut(duration: 0.25)) { focus = nil } } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "person.crop.circle.badge.checkmark").foregroundStyle(Color.turquoise)
+                        Text("Les liens de \(p.nomComplet)").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.encre)
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(Color.gris)
+                    }
+                    .padding(.horizontal, 18).frame(height: 48)
+                }
+                .glassEffect(.regular.interactive(), in: .capsule)
+                .padding(.bottom, 92)
+                .accessibilityLabel("Revenir à tout l'arbre")
+            }
         }
         .background(FondColore())
         .toolbar(.hidden, for: .navigationBar)

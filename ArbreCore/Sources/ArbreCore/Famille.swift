@@ -194,6 +194,21 @@ public struct Famille: Codable, Equatable, Sendable {
         return !na.isEmpty && !nb.isEmpty && na != nb
     }
 
+    /// Lien direct de `cible` avec `sujet` : « Son père », « Sa fille », « Son épouse », « Sa demi-sœur »… ou nil.
+    public func lienDirect(de cible: UUID, avec sujet: UUID) -> String? {
+        guard let x = personne(cible) else { return nil }
+        let f = x.sexe == .femme
+        if cible == sujet { return "Personne choisie" }
+        if parents(de: sujet).contains(where: { $0.id == cible }) { return f ? "Sa mère" : "Son père" }
+        if conjoints(de: sujet).contains(where: { $0.id == cible }) { return f ? "Son épouse" : "Son mari" }
+        if enfants(de: sujet).contains(where: { $0.id == cible }) { return f ? "Sa fille" : "Son fils" }
+        if freresEtSoeurs(de: sujet).contains(where: { $0.id == cible }) {
+            let demi = estDemi(sujet, cible)
+            return f ? (demi ? "Sa demi-sœur" : "Sa sœur") : (demi ? "Son demi-frère" : "Son frère")
+        }
+        return nil
+    }
+
     /// Vrai pour les personnes de la famille par le sang (ancêtres, descendants, frères, oncles, cousins…).
     /// Faux pour celles entrées par mariage : on ne remonte pas leur propre famille.
     public func estDeLaFamille(_ id: UUID) -> Bool {

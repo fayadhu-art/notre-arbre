@@ -19,6 +19,8 @@ public struct Trait: Sendable {
     public let pointille: Bool
     /// Numéro de la famille (un couple ou un parent seul, avec ses enfants) : sert à choisir la couleur.
     public var groupe: Int = 0
+    /// Personnes reliées par ce trait (parents et enfants de la famille, ou les deux conjoints).
+    public var personnes: [UUID] = []
 }
 
 private struct Element {
@@ -223,15 +225,16 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
             let pa = pos(a), pb = pos(b)
             let pointille = elements[a]!.id == nil || elements[b]!.id == nil
             let gr = groupe([a, b])
+            let ids = [a, b].compactMap { elements[$0]!.id }
             if abs(pa.0 - pb.0) <= espaceCouple + 0.5 {
-                traits.append(Trait(de: pa, a: pb, pointille: pointille, groupe: gr))
+                traits.append(Trait(de: pa, a: pb, pointille: pointille, groupe: gr, personnes: ids))
             } else {
                 // Conjoints éloignés : petit pont au-dessus des cercles, sans traverser la personne entre eux.
                 let (g, d) = pa.0 < pb.0 ? (pa, pb) : (pb, pa)
                 let haut = g.1 - 30, bord = g.1 - 20
-                traits.append(Trait(de: (g.0 + 16, bord), a: (g.0 + 16, haut), pointille: pointille, groupe: gr))
-                traits.append(Trait(de: (g.0 + 16, haut), a: (d.0 - 16, haut), pointille: pointille, groupe: gr))
-                traits.append(Trait(de: (d.0 - 16, haut), a: (d.0 - 16, bord), pointille: pointille, groupe: gr))
+                traits.append(Trait(de: (g.0 + 16, bord), a: (g.0 + 16, haut), pointille: pointille, groupe: gr, personnes: ids))
+                traits.append(Trait(de: (g.0 + 16, haut), a: (d.0 - 16, haut), pointille: pointille, groupe: gr, personnes: ids))
+                traits.append(Trait(de: (d.0 - 16, haut), a: (d.0 - 16, bord), pointille: pointille, groupe: gr, personnes: ids))
             }
         }
     }
@@ -276,13 +279,14 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
         let haut = py + ecartGeneration * 0.60, bas = py + ecartGeneration - 30
         let pas = nbNiveaux > 1 ? min(8, (bas - haut) / Double(nbNiveaux - 1)) : 0
         for (k, f) in fams.enumerated() {
+            let ids = (f.parents + f.enfants).compactMap { elements[$0]!.id }
             let midY = haut + Double(niveau[k]) * pas
             let debut = f.sousLeNom ? py + ecartGeneration * 0.58 : py
-            traits.append(Trait(de: (f.x, debut), a: (f.x, midY), pointille: f.pointille, groupe: groupe(f.parents)))
-            if f.droite > f.gauche { traits.append(Trait(de: (f.gauche, midY), a: (f.droite, midY), pointille: f.pointille, groupe: groupe(f.parents))) }
+            traits.append(Trait(de: (f.x, debut), a: (f.x, midY), pointille: f.pointille, groupe: groupe(f.parents), personnes: ids))
+            if f.droite > f.gauche { traits.append(Trait(de: (f.gauche, midY), a: (f.droite, midY), pointille: f.pointille, groupe: groupe(f.parents), personnes: ids)) }
             for c in f.enfants {
                 let (cx, cy) = pos(c)
-                traits.append(Trait(de: (cx, midY), a: (cx, cy), pointille: f.pointille, groupe: groupe(f.parents)))
+                traits.append(Trait(de: (cx, midY), a: (cx, cy), pointille: f.pointille, groupe: groupe(f.parents), personnes: ids))
             }
         }
     }

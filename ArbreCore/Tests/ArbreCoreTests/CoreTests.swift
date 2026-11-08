@@ -664,3 +664,16 @@ final class LectureNomsTests: XCTestCase {
         XCTAssertEqual(noms.first, NomLu(prenom: "Issa", nom: "Attoumani"))
     }
 }
+
+final class AffiliationsTests: XCTestCase {
+    func testDirectLinksOfAPersonAndTheirLines() {
+        let (f, moi, pere, mere, gm) = familleTest()
+        XCTAssertEqual(f.lienDirect(de: gm.id, avec: pere.id), "Sa mère")
+        XCTAssertEqual(f.lienDirect(de: mere.id, avec: pere.id), "Son épouse")
+        XCTAssertEqual(f.lienDirect(de: moi.id, avec: pere.id), "Son fils")
+        XCTAssertNil(f.lienDirect(de: gm.id, avec: moi.id))
+        let r = disposer(f)
+        XCTAssertTrue(r.traits.contains { $0.personnes.contains(pere.id) && $0.personnes.contains(moi.id) })
+        XCTAssertTrue(r.traits.contains { Set($0.personnes) == [pere.id, mere.id] })
+    }
+}
