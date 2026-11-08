@@ -100,14 +100,14 @@ final class AppModel {
     }
 
     /// Crée les nouveaux enfants d'un couple, reliés aux deux parents.
-    func ajouterEnfants(_ lignes: [NouvelEnfant], de sujet: UUID, avec conjoint: UUID) {
+    func ajouterEnfants(_ lignes: [NouvelEnfant], de sujet: UUID, avec conjoint: UUID?) {
         let valides = lignes.filter { !$0.prenom.trimmingCharacters(in: .whitespaces).isEmpty && !$0.nom.trimmingCharacters(in: .whitespaces).isEmpty }
         guard !valides.isEmpty else { return }
         let avant = ajoutsAujourdhui.count
         for l in valides {
             let e = Personne(prenom: l.prenom.trimmingCharacters(in: .whitespaces).majusculeInitiale,
                              nom: l.nom.trimmingCharacters(in: .whitespaces), sexe: l.sexe, origine: .saisie)
-            famille = ajouterProche(e, a: sujet, lien: .enfant, famille: famille, parentsChoisis: [conjoint])
+            famille = ajouterProche(e, a: sujet, lien: .enfant, famille: famille, parentsChoisis: conjoint.map { [$0] } ?? [])
         }
         enregistrer()
         verifierObjectif(avant: avant)

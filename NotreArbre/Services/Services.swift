@@ -1,4 +1,5 @@
 import UIKit
+@preconcurrency import Vision
 import UserNotifications
 import ArbreCore
 
@@ -51,5 +52,27 @@ enum DemandeProche {
         var haut = scene?.keyWindow?.rootViewController
         while let p = haut?.presentedViewController { haut = p }
         haut?.present(partage, animated: true)
+    }
+}
+
+/// Lit le texte d'une capture d'écran, en français, directement sur l'iPhone (sans internet).
+enum LectureCapture {
+    static func texte(de image: UIImage) async -> String {
+        guard let cg = image.cgImage else { return "" }
+        return await withCheckedContinuation { c in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let requete = VNRecognizeTextRequest()
+                requete.recognitionLevel = .accurate
+                requete.recognitionLanguages = ["fr-FR"]
+                requete.usesLanguageCorrection = false
+                do {
+                    try VNImageRequestHandler(cgImage: cg, options: [:]).perform([requete])
+                    let lignes = (requete.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+                    c.resume(returning: lignes.joined(separator: "\n"))
+                } catch {
+                    c.resume(returning: "")
+                }
+            }
+        }
     }
 }

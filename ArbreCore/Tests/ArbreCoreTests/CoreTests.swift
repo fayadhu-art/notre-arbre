@@ -645,3 +645,22 @@ final class FamilleVisibleTests: XCTestCase {
         XCTAssertEqual(traitsTraversantUnNom(r), [])
     }
 }
+
+final class LectureNomsTests: XCTestCase {
+    func testReadsNamesFromAWhatsAppScreenshotText() {
+        let texte = """
+        Issa Attoumani
+        21:45
+        Voici mes enfants
+        1. Halimati ATTOUMANI
+        2. Boina Issa ATTOUMANI
+        - Kamal
+        • Mouhamadi Issa ATTOUMANI
+        Merci
+        """
+        let noms = nomsDepuisTexte(texte, nomParDefaut: "ATTOUMANI")
+        XCTAssertEqual(noms.dropFirst().map(\.prenom), ["Halimati", "Boina Issa", "Kamal", "Mouhamadi Issa"])
+        XCTAssertEqual(noms.dropFirst().map(\.nom), ["ATTOUMANI", "ATTOUMANI", "ATTOUMANI", "ATTOUMANI"])
+        XCTAssertEqual(noms.first, NomLu(prenom: "Issa", nom: "Attoumani"))
+    }
+}
