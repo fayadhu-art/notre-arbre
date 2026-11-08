@@ -144,6 +144,14 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
     for g in toutesGens.filter({ $0 > 0 }) {
         placer(unitesParGen[g]!, cible: { u in moyenne(u.flatMap { parentsDe[$0] ?? [] }) })
     }
+    // Deuxième passage : la génération de l'utilisateur est replacée sous ses parents, pour que
+    // les enfants d'un même couple restent groupés, puis les générations suivantes suivent.
+    if toutesGens.contains(where: { $0 < 0 }) {
+        placer(unitesParGen[0] ?? [], cible: { u in moyenne(u.flatMap { parentsDe[$0] ?? [] }) })
+        for g in toutesGens.filter({ $0 > 0 }) {
+            placer(unitesParGen[g]!, cible: { u in moyenne(u.flatMap { parentsDe[$0] ?? [] }) })
+        }
+    }
 
     // 4. Normalisation et nœuds.
     let minX = x.values.min() ?? 0

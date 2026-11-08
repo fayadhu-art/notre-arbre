@@ -481,3 +481,24 @@ final class TraitsNomsTests: XCTestCase {
         XCTAssertEqual(traitsTraversantUnNom(r), [])
     }
 }
+
+final class FratriesGroupeesTests: XCTestCase {
+    func testChildrenOfSameCoupleStayTogetherWhateverTheOrderOfEntry() {
+        var (f, moi, _, mere, _) = familleTest()
+        let antoissi = Personne(prenom: "Antoissi", sexe: .homme)
+        let mohamadi = Personne(prenom: "Mohamadi", sexe: .homme)
+        f = ajouterProche(antoissi, a: mere.id, lien: .conjoint, famille: f)
+        f = ajouterProche(mohamadi, a: mere.id, lien: .conjoint, famille: f)
+        let fayna = Personne(prenom: "Fayna", sexe: .femme)
+        let chamouine = Personne(prenom: "Chamouine", sexe: .homme)
+        let fainouni = Personne(prenom: "Fainouni", sexe: .homme)
+        f = ajouterProche(fayna, a: mere.id, lien: .enfant, famille: f, parentsChoisis: [mohamadi.id])
+        f = ajouterProche(chamouine, a: mere.id, lien: .enfant, famille: f, parentsChoisis: [antoissi.id])
+        f = ajouterProche(fainouni, a: mere.id, lien: .enfant, famille: f, parentsChoisis: [mohamadi.id])
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 150)
+        let ligne = r.noeuds.filter { $0.y == r.noeuds.first { $0.id == moi.id }!.y }.sorted { $0.x < $1.x }.compactMap(\.id)
+        let i = ligne.firstIndex(of: fayna.id)!, j = ligne.firstIndex(of: fainouni.id)!
+        XCTAssertEqual(abs(i - j), 1, "Fayna et Fainouni, enfants du même couple, sont côte à côte")
+        XCTAssertEqual(traitsTraversantUnNom(r), [])
+    }
+}
