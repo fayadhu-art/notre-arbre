@@ -281,3 +281,35 @@ final class PropositionTests: XCTestCase {
         XCTAssertEqual(s.extraits.map(\.lien), ["père", "mère"])
     }
 }
+
+final class AjoutTests: XCTestCase {
+    func testAddMotherCouplesParents() {
+        let moi = Personne(prenom: "Fayadhu", sexe: .homme)
+        let pere = Personne(prenom: "Ahamada", sexe: .homme)
+        var f = Famille(moiID: moi.id)
+        f.ajouter(moi); f.ajouter(pere)
+        f.lierParent(pere.id, enfant: moi.id)
+        let mere = Personne(prenom: "Zaharia", sexe: .femme)
+        let g = ajouterProche(mere, a: moi.id, lien: .mere, famille: f)
+        XCTAssertEqual(g.mere(de: moi.id)?.id, mere.id)
+        XCTAssertEqual(g.couples.count, 1)
+    }
+
+    func testSiblingSharesParentsAndChildGetsSpouse() {
+        let (f, moi, pere, mere, _) = familleTest()
+        let soeur = Personne(prenom: "Anli", sexe: .femme)
+        let g = ajouterProche(soeur, a: moi.id, lien: .fratrie, famille: f)
+        XCTAssertEqual(Set(g.parents(de: soeur.id).map(\.id)), [pere.id, mere.id])
+        let epouse = Personne(prenom: "Nadia", sexe: .femme)
+        let enfant = Personne(prenom: "Amina", sexe: .femme)
+        let h = ajouterProche(enfant, a: moi.id, lien: .enfant, famille: ajouterProche(epouse, a: moi.id, lien: .conjoint, famille: g))
+        XCTAssertEqual(Set(h.parents(de: enfant.id).map(\.id)), [moi.id, epouse.id])
+    }
+
+    func testHomonymIsKeptAsNewPerson() {
+        let (f, moi, _, _, _) = familleTest()
+        let autre = Personne(prenom: "Ahamada", sexe: .homme)
+        let g = ajouterProche(autre, a: moi.id, lien: .fratrie, famille: f)
+        XCTAssertEqual(g.personnes.count, f.personnes.count + 1)
+    }
+}

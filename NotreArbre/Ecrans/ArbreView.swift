@@ -90,6 +90,7 @@ struct ArbreView: View {
     @State private var zoom: CGFloat = 1
     @State private var zoomDepart: CGFloat = 1
     @State private var fiche: UUID?
+    @State private var choix: UUID?
     @State private var affiche = false
 
     var body: some View {
@@ -123,10 +124,10 @@ struct ArbreView: View {
             ScrollView([.horizontal, .vertical], showsIndicators: false) {
                 let d = disposer(model.famille)
                 ArbreDessin(famille: model.famille,
-                            surPersonne: { fiche = $0 },
+                            surPersonne: { choix = $0 },
                             surATrouver: { n in
                                 guard let pour = n.pour else { return }
-                                model.ouvrirEntretien(depart: Manque(personne: pour, sujet: pour == model.famille.moiID ? .parents : .grandsParents))
+                                model.ajout = Ajout(pour: pour, lien: n.role == .femme ? .mere : .pere)
                             })
                     .scaleEffect(zoom, anchor: .topLeading)
                     .frame(width: d.taille.0 * zoom, height: d.taille.1 * zoom, alignment: .topLeading)
@@ -144,6 +145,13 @@ struct ArbreView: View {
         .background(FondColore())
         .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(item: $fiche) { FicheView(id: $0) }
+        .confirmationDialog(choix.flatMap { model.famille.personne($0)?.nomComplet } ?? "",
+                            isPresented: Binding(get: { choix != nil }, set: { if !$0 { choix = nil } }),
+                            titleVisibility: .visible, presenting: choix) { id in
+            MenuAjout(id: id)
+            Button("Voir la fiche") { fiche = id }
+            Button("Annuler", role: .cancel) {}
+        }
         .sheet(isPresented: $affiche) { AfficheView().environment(model).presentationDetents([.medium]) }
     }
 

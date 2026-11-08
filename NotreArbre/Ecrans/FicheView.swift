@@ -65,7 +65,7 @@ struct FicheView: View {
                             }
                             .frame(minHeight: 44)
                         }
-                        Text("Je poserai ces questions lors de tes prochains entretiens.")
+                        Text("Touche « Ajouter un proche » ou « Modifier » pour compléter.")
                             .font(.system(size: 13)).foregroundStyle(Color.gris).padding(.bottom, 8)
                     }
                 }
@@ -76,8 +76,8 @@ struct FicheView: View {
                     .font(.system(size: 12)).foregroundStyle(Color.gris)
 
                 VStack(spacing: 10) {
-                    Button { model.ouvrirEntretien(depart: aSavoir.first) } label: {
-                        Label("Compléter avec l'IA", systemImage: "mic")
+                    Menu { MenuAjout(id: id) } label: {
+                        Label("Ajouter un proche", systemImage: "plus")
                             .font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
                             .frame(maxWidth: .infinity).frame(height: 56)
                     }

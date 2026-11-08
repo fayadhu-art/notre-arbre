@@ -22,10 +22,6 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
-        NSMicrophoneUsageDescription: "Le micro sert à répondre aux questions de l'entretien."
-        NSSpeechRecognitionUsageDescription: "La reconnaissance vocale transforme tes réponses en texte, sur ton iPhone."
-        NSCameraUsageDescription: "L'appareil photo sert à lire un livret de famille ou un acte."
-        NSPhotoLibraryUsageDescription: "Pour choisir la photo d'un document."
         LSApplicationQueriesSchemes: [whatsapp]
     settings:
       base:

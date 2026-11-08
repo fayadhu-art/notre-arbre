@@ -9,8 +9,11 @@ final class AppModel {
     var traites: Set<Manque> = []
     var onglet: Onglet = .accueil
 
-    var entretienOuvert = false
-    var entretienDepart: Manque?
+    /// Formulaire d'ajout ouvert (personne touchée + lien).
+    var ajout: Ajout?
+    /// Fiche à modifier (date ou village manquant).
+    var edition: UUID?
+    var objectifAtteint = false
     var erreur: String?
 
     let calendrier = Calendar.current
@@ -54,23 +57,45 @@ final class AppModel {
 
     func reporter(_ m: Manque) { enAttente.insert(m); enregistrer() }
 
-    func ouvrirEntretien(depart: Manque? = nil) {
-        entretienDepart = depart
-        entretienOuvert = true
+    /// Ouvre le bon formulaire pour une information manquante.
+    func completer(_ m: Manque) {
+        guard let id = m.personne else { return }
+        switch m.sujet {
+        case .parents, .grandsParents:
+            ajout = Ajout(pour: id, lien: famille.pere(de: id) == nil ? .pere : .mere)
+        case .freresSoeurs:
+            ajout = Ajout(pour: id, lien: famille.parents(de: id).isEmpty ? (famille.pere(de: id) == nil ? .pere : .mere) : .fratrie)
+        case .enfants:
+            ajout = Ajout(pour: id, lien: .enfant)
+        case .dateNaissance, .lieuNaissance:
+            edition = id
+        }
+    }
+
+    /// Liens qu'on peut ajouter à une personne (père et mère seulement s'ils manquent, frère ou sœur si on connaît un parent).
+    func liensPossibles(_ id: UUID) -> [LienAjout] {
+        var l: [LienAjout] = []
+        if famille.parents(de: id).count < 2 {
+            if famille.pere(de: id) == nil { l.append(.pere) }
+            if famille.mere(de: id) == nil { l.append(.mere) }
+        }
+        if !famille.parents(de: id).isEmpty { l.append(.fratrie) }
+        l += [.enfant, .conjoint]
+        return l
+    }
+
+    /// Ajoute une personne saisie dans le formulaire. Ouvre l'écran « Objectif atteint » au 5e ajout du jour.
+    func ajouter(_ p: Personne, a sujet: UUID, lien: LienAjout) {
+        let avant = ajoutsAujourdhui.count
+        famille = ajouterProche(p, a: sujet, lien: lien, famille: famille)
+        enregistrer()
+        if avant < Objectif.cible && ajoutsAujourdhui.count >= Objectif.cible {
+            // Laisse le formulaire se fermer avant d'afficher l'écran de victoire.
+            Task { try? await Task.sleep(for: .milliseconds(600)); objectifAtteint = true }
+        }
     }
 
     // MARK: Modifications
-
-    /// Applique une proposition validée. Renvoie vrai si l'objectif du jour vient d'être atteint.
-    @discardableResult
-    func appliquer(_ r: Resultat) -> Bool {
-        let avant = ajoutsAujourdhui.count
-        famille = r.famille
-        if let t = r.traite { traites.insert(t) }
-        for t in r.touchees { enAttente = enAttente.filter { $0.personne != t.id } }
-        enregistrer()
-        return avant < Objectif.cible && ajoutsAujourdhui.count >= Objectif.cible
-    }
 
     func creerMoi(prenom: String, nom: String, sexe: Sexe) {
         let moi = Personne(prenom: prenom.majusculeInitiale, nom: nom, sexe: sexe, origine: .saisie)
@@ -111,12 +136,38 @@ final class AppModel {
         let nom = m.personne.flatMap { famille.personne($0)?.prenom } ?? ""
         let estMoi = m.personne == famille.moiID
         switch m.sujet {
-        case .parents where estMoi: return "Commence par tes parents : je te guide, une question à la fois."
+        case .parents where estMoi: return "Commence par ajouter tes parents à l'arbre."
         case .parents, .grandsParents: return "On ne connaît pas encore les parents de \(nom). On commence par eux ?"
         case .freresSoeurs: return estMoi ? "Parle-moi de tes frères et sœurs." : "Qui sont les frères et sœurs de \(nom) ?"
         case .enfants: return estMoi ? "Ajoute tes enfants à l'arbre." : "Qui sont les enfants de \(nom) ?"
         case .dateNaissance: return estMoi ? "Il manque ton année de naissance." : "Il manque l'année de naissance de \(nom)."
         case .lieuNaissance: return estMoi ? "Il manque ton village de naissance." : "Il manque le village de naissance de \(nom)."
+        }
+    }
+}
+
+struct Ajout: Identifiable, Equatable {
+    let pour: UUID
+    let lien: LienAjout
+    var id: String { "\(pour)-\(lien.rawValue)" }
+}
+
+extension LienAjout {
+    var action: String {
+        switch self {
+        case .pere: "Ajouter son père"
+        case .mere: "Ajouter sa mère"
+        case .fratrie: "Ajouter un frère ou une sœur"
+        case .enfant: "Ajouter un enfant"
+        case .conjoint: "Ajouter un conjoint"
+        }
+    }
+    var icone: String {
+        switch self {
+        case .pere, .mere: "arrow.up.circle"
+        case .fratrie: "arrow.left.and.right.circle"
+        case .enfant: "arrow.down.circle"
+        case .conjoint: "heart.circle"
         }
     }
 }

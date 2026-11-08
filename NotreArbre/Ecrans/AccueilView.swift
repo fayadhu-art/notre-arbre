@@ -12,8 +12,8 @@ struct AccueilView: View {
             VStack(alignment: .leading, spacing: 16) {
                 entete
                 carteObjectif(n: n, reste: reste)
-                Button { model.ouvrirEntretien() } label: {
-                    Label("Continuer l'entretien", systemImage: "mic")
+                Button { model.onglet = .arbre } label: {
+                    Label("Ajouter des personnes", systemImage: "plus")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity).frame(height: 58)
@@ -70,7 +70,7 @@ struct AccueilView: View {
                     Text("OBJECTIF DU JOUR").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.turquoise).tracking(0.5)
                     Text(reste == 0 ? "Objectif atteint" : "Encore \(reste) personne\(reste > 1 ? "s" : "")")
                         .font(.system(size: 20, weight: .bold)).foregroundStyle(Color.encre)
-                    Text(reste == 0 ? "Tu peux continuer si tu veux" : "Environ \(reste * 3) minutes d'entretien")
+                    Text(reste == 0 ? "Tu peux continuer si tu veux" : "Touche l'arbre pour ajouter quelqu'un")
                         .font(.system(size: 14)).foregroundStyle(Color.gris)
                 }
                 Spacer(minLength: 0)
@@ -131,14 +131,14 @@ struct AccueilView: View {
     }
 
     private func suggestion(_ m: Manque) -> some View {
-        Button { model.ouvrirEntretien(depart: m) } label: {
+        Button { model.completer(m) } label: {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
                     .frame(width: 36, height: 36)
                     .background(Circle().fill(Color.violet))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("L'IA te propose").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.violetTexte)
+                    Text("À compléter").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.violetTexte)
                     Text(model.suggestion(m)).font(.system(size: 15)).foregroundStyle(Color.encre)
                         .multilineTextAlignment(.leading)
                 }

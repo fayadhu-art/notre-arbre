@@ -107,9 +107,6 @@ struct ReglagesView: View {
                 Section("Rappel") {
                     Text("Chaque jour à 19 h, si tes 5 personnes ne sont pas faites.")
                 }
-                Section("IA") {
-                    Text(Assistant().disponible ? "L'IA d'Apple est prête, sur ton iPhone." : "L'IA d'Apple n'est pas disponible. Active Apple Intelligence dans Réglages.")
-                }
             }
             .navigationTitle("Réglages")
             .navigationBarTitleDisplayMode(.inline)

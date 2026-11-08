@@ -1,5 +1,4 @@
 import UIKit
-@preconcurrency import Vision
 import UserNotifications
 import ArbreCore
 
@@ -31,43 +30,6 @@ enum Rappel {
         }
         if let demain = cal.date(byAdding: .day, value: 1, to: maintenant) {
             programmer("rappel-demain", jour: demain, reste: Objectif.cible)
-        }
-    }
-}
-
-/// Lecture du texte d'un document photographié, en français, sur l'iPhone.
-enum LectureDocument {
-    static func texte(de image: UIImage) async throws -> String {
-        guard let cg = image.cgImage else { return "" }
-        let orientation = CGImagePropertyOrientation(image.imageOrientation)
-        return try await withCheckedThrowingContinuation { c in
-            let requete = VNRecognizeTextRequest { r, erreur in
-                if let erreur { c.resume(throwing: erreur); return }
-                let lignes = (r.results as? [VNRecognizedTextObservation])?.compactMap { $0.topCandidates(1).first?.string } ?? []
-                c.resume(returning: lignes.joined(separator: "\n"))
-            }
-            requete.recognitionLevel = .accurate
-            requete.recognitionLanguages = ["fr-FR"]
-            requete.usesLanguageCorrection = true
-            DispatchQueue.global(qos: .userInitiated).async {
-                try? VNImageRequestHandler(cgImage: cg, orientation: orientation).perform([requete])
-            }
-        }
-    }
-}
-
-extension CGImagePropertyOrientation {
-    init(_ o: UIImage.Orientation) {
-        switch o {
-        case .up: self = .up
-        case .down: self = .down
-        case .left: self = .left
-        case .right: self = .right
-        case .upMirrored: self = .upMirrored
-        case .downMirrored: self = .downMirrored
-        case .leftMirrored: self = .leftMirrored
-        case .rightMirrored: self = .rightMirrored
-        @unknown default: self = .up
         }
     }
 }

@@ -34,8 +34,16 @@ struct RacineView: View {
             }
             BarreOnglets()
         }
-        .fullScreenCover(isPresented: $model.entretienOuvert) {
-            EntretienView(depart: model.entretienDepart).environment(model)
+        .sheet(item: $model.ajout) { a in
+            FormulaireAjoutView(ajout: a).environment(model)
+        }
+        .sheet(item: Binding(get: { model.edition.map(IdentifiantFiche.init) }, set: { model.edition = $0?.id })) { e in
+            if let p = model.famille.personne(e.id) { EditionView(personne: p, supprimer: {}).environment(model) }
+        }
+        .fullScreenCover(isPresented: $model.objectifAtteint) {
+            ObjectifAtteintView(terminer: { model.objectifAtteint = false; model.onglet = .accueil },
+                                continuer: { model.objectifAtteint = false })
+                .environment(model)
         }
         .sheet(isPresented: .constant(model.famille.moi == nil)) {
             PremierLancementView().environment(model).interactiveDismissDisabled()
@@ -47,6 +55,8 @@ struct RacineView: View {
         }
     }
 }
+
+struct IdentifiantFiche: Identifiable { let id: UUID }
 
 extension View {
     func destinations() -> some View {
@@ -70,14 +80,14 @@ struct BarreOnglets: View {
                 .frame(height: 64)
                 .glassEffect(.regular.interactive(), in: .capsule)
 
-                Button { model.ouvrirEntretien() } label: {
-                    Image(systemName: "mic")
-                        .font(.system(size: 24, weight: .medium))
+                Button { model.onglet = .arbre } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 26, weight: .semibold))
                         .foregroundStyle(Color.turquoise)
                         .frame(width: 64, height: 64)
                 }
                 .glassEffect(.regular.interactive(), in: .circle)
-                .accessibilityLabel("Entretien vocal")
+                .accessibilityLabel("Ajouter des personnes dans l'arbre")
             }
         }
         .padding(.horizontal, 16)
@@ -111,7 +121,7 @@ struct PremierLancementView: View {
             FondColore()
             VStack(alignment: .leading, spacing: 20) {
                 Text("Bienvenue").font(.titreEcran())
-                Text("L'arbre part de toi. Ensuite, je te pose les questions et je dessine l'arbre au fur et à mesure.")
+                Text("L'arbre part de toi. Ensuite, touche une personne dans l'arbre pour ajouter ses parents, ses frères et sœurs ou ses enfants.")
                     .font(.system(size: 16)).foregroundStyle(Color.gris)
                 VStack(spacing: 0) {
                     TextField("Ton prénom", text: $prenom).textContentType(.givenName).padding(16)
