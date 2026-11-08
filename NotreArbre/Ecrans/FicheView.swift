@@ -60,7 +60,7 @@ struct FicheView: View {
                         if i < liens.count - 1 { Divider() }
                     }
                 }
-                let couples = f.conjoints(de: id).filter { c in !f.enfants(de: id).isEmpty || !f.enfants(de: c.id).isEmpty }
+                let couples = f.conjoints(de: id)
                 if !couples.isEmpty {
                     section("Enfants par couple") {
                         ForEach(couples) { c in

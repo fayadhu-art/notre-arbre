@@ -94,6 +94,24 @@ final class AppModel {
             famille = definirEnfantsCommuns(sujet, avec: p.id, enfants: enfantsCommuns, famille: famille)
         }
         enregistrer()
+        verifierObjectif(avant: avant)
+    }
+
+    /// Crée les nouveaux enfants d'un couple, reliés aux deux parents.
+    func ajouterEnfants(_ lignes: [NouvelEnfant], de sujet: UUID, avec conjoint: UUID) {
+        let valides = lignes.filter { !$0.prenom.trimmingCharacters(in: .whitespaces).isEmpty && !$0.nom.trimmingCharacters(in: .whitespaces).isEmpty }
+        guard !valides.isEmpty else { return }
+        let avant = ajoutsAujourdhui.count
+        for l in valides {
+            let e = Personne(prenom: l.prenom.trimmingCharacters(in: .whitespaces).majusculeInitiale,
+                             nom: l.nom.trimmingCharacters(in: .whitespaces), sexe: l.sexe, origine: .saisie)
+            famille = ajouterProche(e, a: sujet, lien: .enfant, famille: famille, parentsChoisis: [conjoint])
+        }
+        enregistrer()
+        verifierObjectif(avant: avant)
+    }
+
+    private func verifierObjectif(avant: Int) {
         if avant < Objectif.cible && ajoutsAujourdhui.count >= Objectif.cible {
             // Laisse le formulaire se fermer avant d'afficher l'écran de victoire.
             Task { try? await Task.sleep(for: .milliseconds(600)); objectifAtteint = true }
@@ -197,4 +215,12 @@ extension LienAjout {
 
 extension Array {
     subscript(safe i: Int) -> Element? { indices.contains(i) ? self[i] : nil }
+}
+
+/// Une ligne « nouvel enfant » saisie avec un couple.
+struct NouvelEnfant: Identifiable, Equatable {
+    let id = UUID()
+    var prenom = ""
+    var nom = ""
+    var sexe: Sexe = .inconnu
 }

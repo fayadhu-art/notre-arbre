@@ -16,6 +16,7 @@ struct FormulaireAjoutView: View {
     @State private var choixParents = ""
     /// Enfants déjà dans l'arbre, eus avec le nouveau conjoint.
     @State private var enfantsCommuns: Set<UUID> = []
+    @State private var nouveauxEnfants: [NouvelEnfant] = []
     @FocusState private var champPrenom: Bool
 
     var body: some View {
@@ -52,9 +53,12 @@ struct FormulaireAjoutView: View {
                         Text(ajout.lien == .enfant ? "Qui est l'autre parent ?" : "Même père et même mère ?")
                     }
                 }
-                if ajout.lien == .conjoint, !model.famille.enfants(de: ajout.pour).isEmpty {
-                    ChoixEnfants(sujet: ajout.pour, conjoint: nil, choisis: $enfantsCommuns,
-                                 titre: prenom.isEmpty ? "Enfants eus ensemble" : "Enfants eus avec \(prenom.trimmingCharacters(in: .whitespaces))")
+                if ajout.lien == .conjoint {
+                    if !model.famille.enfants(de: ajout.pour).isEmpty {
+                        ChoixEnfants(sujet: ajout.pour, conjoint: nil, choisis: $enfantsCommuns,
+                                     titre: "Enfants déjà dans l'arbre")
+                    }
+                    NouveauxEnfants(lignes: $nouveauxEnfants, nomParDefaut: nomDuPere)
                 }
                 Section("Notes") {
                     TextField("Ce que tu sais d'autre", text: $notes, axis: .vertical).lineLimit(2...6)
@@ -105,6 +109,13 @@ struct FormulaireAjoutView: View {
         }
     }
 
+    /// Nom proposé pour les enfants d'un nouveau couple : celui du père.
+    private var nomDuPere: String {
+        let sujet = model.famille.personne(ajout.pour)
+        if sujet?.sexe == .homme { return sujet?.nom ?? "" }
+        return nom.trimmingCharacters(in: .whitespaces)
+    }
+
     /// Frère ou sœur avec un autre nom que le père : on propose « Même mère seulement ».
     private func proposerParentsSelonNom() {
         guard ajout.lien == .fratrie, !optionsParents.isEmpty,
@@ -139,6 +150,7 @@ struct FormulaireAjoutView: View {
         fermer()
         let choisis = optionsParents.isEmpty ? nil : optionsParents.first { $0.cle == choixParents }?.ids
         model.ajouter(p, a: ajout.pour, lien: ajout.lien, parentsChoisis: choisis, enfantsCommuns: enfantsCommuns)
+        if ajout.lien == .conjoint { model.ajouterEnfants(nouveauxEnfants, de: ajout.pour, avec: p.id) }
     }
 }
 
@@ -193,25 +205,73 @@ struct EnfantsDuCoupleView: View {
     let sujet: UUID
     let conjoint: UUID
     @State private var choisis: Set<UUID> = []
+    @State private var nouveaux: [NouvelEnfant] = []
 
     var body: some View {
         let f = model.famille
         NavigationStack {
             Form {
-                ChoixEnfants(sujet: sujet, conjoint: conjoint, choisis: $choisis,
-                             titre: "Enfants de \(f.personne(sujet)?.prenom ?? "") avec \(f.personne(conjoint)?.prenom ?? "")")
+                if !f.enfants(de: sujet).isEmpty {
+                    ChoixEnfants(sujet: sujet, conjoint: conjoint, choisis: $choisis,
+                                 titre: "Enfants de \(f.personne(sujet)?.prenom ?? "") avec \(f.personne(conjoint)?.prenom ?? "")")
+                }
+                NouveauxEnfants(lignes: $nouveaux, nomParDefaut: [f.personne(sujet), f.personne(conjoint)].compactMap { $0 }.first { $0.sexe == .homme }?.nom ?? "")
             }
             .navigationTitle("Enfants du couple")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Annuler") { fermer() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Enregistrer") { model.definirEnfants(de: sujet, avec: conjoint, choisis); fermer() }
+                    Button("Enregistrer") {
+                        model.definirEnfants(de: sujet, avec: conjoint, choisis)
+                        model.ajouterEnfants(nouveaux, de: sujet, avec: conjoint)
+                        fermer()
+                    }
                 }
             }
             .onAppear {
                 choisis = Set(f.enfants(de: sujet).filter { e in f.parents(de: e.id).contains { $0.id == conjoint } }.map(\.id))
             }
+        }
+    }
+}
+
+/// Saisie de nouveaux enfants d'un couple, en plus de ceux déjà dans l'arbre.
+struct NouveauxEnfants: View {
+    @Binding var lignes: [NouvelEnfant]
+    let nomParDefaut: String
+
+    var body: some View {
+        Section {
+            ForEach($lignes) { $l in
+                VStack(spacing: 8) {
+                    HStack {
+                        TextField("Prénom", text: $l.prenom)
+                        Button { lignes.removeAll { $0.id == l.id } } label: {
+                            Image(systemName: "minus.circle.fill").foregroundStyle(Color.corailTexte)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Retirer cet enfant")
+                    }
+                    TextField("Nom", text: $l.nom)
+                    Picker("Sexe", selection: $l.sexe) {
+                        Text("Garçon").tag(Sexe.homme)
+                        Text("Fille").tag(Sexe.femme)
+                        Text("?").tag(Sexe.inconnu)
+                    }
+                    .pickerStyle(.segmented)
+                }
+                .padding(.vertical, 4)
+            }
+            Button {
+                lignes.append(NouvelEnfant(nom: nomParDefaut))
+            } label: {
+                Label("Ajouter un enfant de ce couple", systemImage: "plus.circle.fill")
+            }
+        } header: {
+            Text("Nouveaux enfants")
+        } footer: {
+            Text("Pour les enfants qui ne sont pas encore dans l'arbre. Ils seront reliés aux deux parents.")
         }
     }
 }
