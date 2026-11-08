@@ -165,7 +165,12 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
     placer(unitesParGen[0] ?? [], cible: { _ in nil })
     // Remontée : chaque couple au-dessus de ses enfants. Une personne sans enfant se cale sur ses frères et sœurs.
     func cibleParents(_ u: [String]) -> Double? {
-        if let m = moyenne(u.flatMap { enfantsDe[$0] ?? [] }) { return m }
+        let enfants = u.flatMap { enfantsDe[$0] ?? [] }
+        // Les ancêtres se placent au-dessus de leur enfant de la lignée directe (Papa, Maman…),
+        // ce qui garde le côté père à droite et le côté mère à gauche jusqu'en haut de l'arbre.
+        let directs = enfants.filter { c in elements[c]!.id.map { ligneDirecte.contains($0) } ?? false }
+        if let m = moyenne(directs) { return m }
+        if let m = moyenne(enfants) { return m }
         let freres = u.flatMap { c in (parentsDe[c] ?? []).flatMap { enfantsDe[$0] ?? [] } }.filter { !u.contains($0) }
         return moyenne(freres.flatMap { enfantsDe[$0] ?? [] })
     }
