@@ -697,3 +697,43 @@ final class SousFamilleTests: XCTestCase {
         XCTAssertEqual(s.parente(de: gm.id), "Grand-mère paternelle")
     }
 }
+
+final class BullesTests: XCTestCase {
+    func testEachWifeHasHerChildrenBubbleWithTitleAndNoStranger() {
+        let h = Personne(prenom: "Ahamada", sexe: .homme)
+        var f = Famille(moiID: h.id)
+        f.ajouter(h)
+        for nom in ["Zaharia", "Halima", "Echati"] {
+            let e = Personne(prenom: nom, sexe: .femme)
+            f = ajouterProche(e, a: h.id, lien: .conjoint, famille: f)
+            for i in 1...2 { f = ajouterProche(Personne(prenom: "\(nom) \(i)"), a: h.id, lien: .enfant, famille: f, parentsChoisis: [e.id]) }
+        }
+        let b = bulles(f, largeurNoeud: 104, ecartGeneration: 150)
+        let enfants = b.filter { !$0.estCouple }
+        XCTAssertEqual(enfants.count, 3)
+        XCTAssertEqual(Set(enfants.map(\.groupe)).count, 3, "une couleur par épouse")
+        for nom in ["Zaharia", "Halima", "Echati"] {
+            XCTAssertTrue(enfants.contains { $0.titre?.contains(nom) == true && $0.titre?.contains("Ahamada") == true })
+        }
+        // Aucune bulle d'enfants n'englobe une personne qui n'est pas de cette fratrie.
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 150)
+        for bulle in enfants {
+            let dedans = r.noeuds.filter { $0.x > bulle.x1 && $0.x < bulle.x2 && $0.y > bulle.y1 && $0.y < bulle.y2 }
+            XCTAssertEqual(dedans.count, 2)
+        }
+    }
+
+    func testCoupleCapsuleSharesColorWithItsChildren() {
+        var (f, moi, _, _, _) = familleTest()
+        let fatuma = Personne(prenom: "Fatuma", sexe: .femme)
+        f = ajouterProche(fatuma, a: moi.id, lien: .conjoint, famille: f)
+        f = ajouterProche(Personne(prenom: "Insya"), a: moi.id, lien: .enfant, famille: f)
+        let b = bulles(f, largeurNoeud: 104, ecartGeneration: 150)
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 150)
+        let m = r.noeuds.first { $0.id == moi.id }!
+        let capsule = b.first { $0.estCouple && $0.y1 < m.y && $0.y2 > m.y && $0.x1 < m.x && $0.x2 > m.x }!
+        let fratrie = b.first { $0.titre == "Enfants de Fatuma et Fayadhu" }
+        XCTAssertNotNil(fratrie)
+        XCTAssertEqual(capsule.groupe, fratrie?.groupe)
+    }
+}

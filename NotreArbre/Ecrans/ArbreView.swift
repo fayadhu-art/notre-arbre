@@ -25,27 +25,32 @@ struct ArbreDessin: View {
     var body: some View {
         let d = disposer(famille, largeurNoeud: Self.largeur, ecartGeneration: Self.ecart)
         ZStack(alignment: .topLeading) {
-            // Une couleur par famille (couple ou parent seul, avec ses enfants).
-            ForEach(Array(Set(d.traits.map(\.groupe))).sorted(), id: \.self) { g in
-                let couleur = Self.palette[g % Self.palette.count]
-                Path { p in
-                    for t in d.traits where t.groupe == g && !t.pointille && (focus == nil || t.personnes.contains(focus!)) {
-                        p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
-                    }
+            // À la place des traits : une capsule derrière chaque couple et une carte derrière chaque fratrie,
+            // de la même couleur, avec « Enfants de … » en titre.
+            let bs = bulles(famille, largeurNoeud: Self.largeur, ecartGeneration: Self.ecart)
+            ForEach(bs.filter { !$0.estCouple }) { b in
+                let couleur = Self.palette[b.groupe % Self.palette.count]
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(couleur.opacity(pourImpression ? 0.10 : 0.13))
+                    .overlay(RoundedRectangle(cornerRadius: 24).stroke(couleur.opacity(0.55), lineWidth: 1.5))
+                    .frame(width: b.x2 - b.x1, height: b.y2 - b.y1)
+                    .position(x: (b.x1 + b.x2) / 2, y: (b.y1 + b.y2) / 2)
+                if let t = b.titre {
+                    Text(t)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(couleur)
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                        .frame(width: max(40, b.x2 - b.x1 - 20))
+                        .position(x: (b.x1 + b.x2) / 2, y: b.y1 + 11)
                 }
-                .stroke(couleur.opacity(0.8), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                Path { p in
-                    for t in d.traits where t.groupe == g && !t.pointille && focus != nil && !t.personnes.contains(focus!) {
-                        p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
-                    }
-                }
-                .stroke(couleur.opacity(0.12), style: StrokeStyle(lineWidth: 2))
-                Path { p in
-                    for t in d.traits where t.groupe == g && t.pointille {
-                        p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
-                    }
-                }
-                .stroke(couleur.opacity(0.55), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
+            }
+            ForEach(bs.filter(\.estCouple)) { b in
+                let couleur = Self.palette[b.groupe % Self.palette.count]
+                Capsule()
+                    .fill(couleur.opacity(0.22))
+                    .overlay(Capsule().stroke(couleur.opacity(0.7), lineWidth: 2))
+                    .frame(width: b.x2 - b.x1, height: b.y2 - b.y1)
+                    .position(x: (b.x1 + b.x2) / 2, y: (b.y1 + b.y2) / 2)
             }
 
             ForEach(d.noeuds, id: \.cle) { n in
