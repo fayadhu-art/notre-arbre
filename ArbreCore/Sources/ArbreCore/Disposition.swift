@@ -95,8 +95,14 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
         }
         let nb = { (c: String) in conjointsDe[c]?.count ?? 0 }
         let centre = groupe.reduce(groupe[0]) { nb($1) > nb($0) ? $1 : $0 }
-        let autres = groupe.filter { $0 != centre }
-        return [autres[0], centre] + autres.dropFirst()
+        var autres = groupe.filter { $0 != centre }
+        // Le conjoint de la lignée directe (père ou mère de l'utilisateur, ancêtre) reste collé au centre,
+        // du bon côté : la femme à gauche, l'homme à droite. Les autres conjoints vont de l'autre côté.
+        if let i = autres.firstIndex(where: { c in elements[c]!.id.map { ligneDirecte.contains($0) } ?? false }) {
+            autres.insert(autres.remove(at: i), at: 0)
+        }
+        let prioritaire = autres[0], reste = Array(autres.dropFirst())
+        return estHomme(centre) ? [prioritaire, centre] + reste : reste.reversed() + [centre, prioritaire]
     }
 
     // 3. Unités par génération : chaque groupe de conjoints forme une unité.
@@ -157,19 +163,22 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
 
     let toutesGens = unitesParGen.keys.sorted()
     placer(unitesParGen[0] ?? [], cible: { _ in nil })
+    // Remontée : chaque couple au-dessus de ses enfants. Une personne sans enfant se cale sur ses frères et sœurs.
+    func cibleParents(_ u: [String]) -> Double? {
+        if let m = moyenne(u.flatMap { enfantsDe[$0] ?? [] }) { return m }
+        let freres = u.flatMap { c in (parentsDe[c] ?? []).flatMap { enfantsDe[$0] ?? [] } }.filter { !u.contains($0) }
+        return moyenne(freres.flatMap { enfantsDe[$0] ?? [] })
+    }
     for g in toutesGens.filter({ $0 < 0 }).reversed() {
-        placer(unitesParGen[g]!, cible: { u in moyenne(u.flatMap { enfantsDe[$0] ?? [] }) })
+        placer(unitesParGen[g]!, cible: cibleParents)
     }
     for g in toutesGens.filter({ $0 > 0 }) {
         placer(unitesParGen[g]!, cible: cibleEnfants)
     }
-    // Deuxième passage : la génération de l'utilisateur est replacée sous ses parents, pour que
-    // les enfants d'un même couple restent groupés, puis les générations suivantes suivent.
-    if toutesGens.contains(where: { $0 < 0 }) {
-        placer(unitesParGen[0] ?? [], cible: cibleEnfants)
-        for g in toutesGens.filter({ $0 > 0 }) {
-            placer(unitesParGen[g]!, cible: cibleEnfants)
-        }
+    // Descente : de haut en bas, chaque génération est replacée sous ses parents, pour que
+    // les frères et sœurs restent groupés sous leur couple, côté père à droite, côté mère à gauche.
+    for g in toutesGens.dropFirst() {
+        placer(unitesParGen[g]!, cible: cibleEnfants)
     }
 
     // 4. Normalisation et nœuds.

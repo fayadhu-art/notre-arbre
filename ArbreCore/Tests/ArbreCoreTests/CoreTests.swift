@@ -598,3 +598,33 @@ final class CotesTests: XCTestCase {
         _ = moi
     }
 }
+
+final class CotePaternelTests: XCTestCase {
+    func testPaternalUncleWithoutChildrenStaysOnTheRightNextToFather() {
+        var (f, moi, pere, mere, gm) = familleTest()
+        let gp = Personne(prenom: "Anli", sexe: .homme)
+        f = ajouterProche(gp, a: pere.id, lien: .pere, famille: f)
+        let gpMat = Personne(prenom: "Matoir", sexe: .homme), gmMat = Personne(prenom: "Fatima", sexe: .femme)
+        f = ajouterProche(gpMat, a: mere.id, lien: .pere, famille: f)
+        f = ajouterProche(gmMat, a: mere.id, lien: .mere, famille: f)
+        for n in ["Mouhaza", "Hamidati", "Bahassani", "Kahissi"] {
+            f = ajouterProche(Personne(prenom: n, sexe: .femme), a: mere.id, lien: .fratrie, famille: f)
+        }
+        let idrissa = Personne(prenom: "Idrissa", sexe: .homme)
+        f = ajouterProche(idrissa, a: pere.id, lien: .fratrie, famille: f)
+        for (mari, enfant) in [("Antoissi", "Chamouine"), ("Mohamadi", "Fayna")] {
+            let m = Personne(prenom: mari, sexe: .homme)
+            f = ajouterProche(m, a: mere.id, lien: .conjoint, famille: f)
+            f = ajouterProche(Personne(prenom: enfant), a: mere.id, lien: .enfant, famille: f, parentsChoisis: [m.id])
+        }
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 150)
+        func x(_ p: Personne) -> Double { r.noeuds.first { $0.id == p.id }!.x }
+        XCTAssertGreaterThan(x(pere), x(mere), "Papa à droite de Maman, même avec ses autres maris")
+        XCTAssertGreaterThan(x(idrissa), x(pere), "l'oncle paternel est du côté droit")
+        XCTAssertGreaterThan(x(gm), x(gmMat), "grands-parents paternels à droite des maternels")
+        XCTAssertGreaterThan(x(gp), x(gpMat))
+        XCTAssertEqual(croisements(r.traits), 0)
+        XCTAssertEqual(traitsTraversantUnNom(r), [])
+        _ = moi
+    }
+}
