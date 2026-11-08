@@ -6,6 +6,7 @@ struct FicheView: View {
     @Environment(\.dismiss) private var fermer
     let id: UUID
     @State private var edition = false
+    @State private var couple: IdentifiantCouple?
 
     var body: some View {
         Group {
@@ -14,6 +15,9 @@ struct FicheView: View {
         .background(FondColore())
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) { Button("Modifier") { edition = true } }
+        }
+        .sheet(item: $couple) { c in
+            EnfantsDuCoupleView(sujet: c.sujet, conjoint: c.conjoint).environment(model)
         }
         .sheet(isPresented: $edition) {
             if let p = model.famille.personne(id) { EditionView(personne: p, supprimer: { fermer() }).environment(model) }
@@ -54,6 +58,28 @@ struct FicheView: View {
                         }
                         .buttonStyle(.plain)
                         if i < liens.count - 1 { Divider() }
+                    }
+                }
+                let couples = f.conjoints(de: id).filter { c in !f.enfants(de: id).isEmpty || !f.enfants(de: c.id).isEmpty }
+                if !couples.isEmpty {
+                    section("Enfants par couple") {
+                        ForEach(couples) { c in
+                            Button {
+                                // On coche parmi les enfants du membre de la famille.
+                                let sujet = f.estDeLaFamille(id) || f.enfants(de: c.id).isEmpty ? id : c.id
+                                couple = IdentifiantCouple(sujet: sujet, conjoint: sujet == id ? c.id : id)
+                            } label: {
+                                HStack {
+                                    Text("Enfants avec \(c.prenom)").font(.system(size: 16, weight: .medium)).foregroundStyle(Color.encre)
+                                    Spacer()
+                                    Text("\(f.enfants(de: id).filter { e in f.parents(de: e.id).contains { $0.id == c.id } }.count)")
+                                        .foregroundStyle(Color.gris)
+                                    Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold)).foregroundStyle(Color(hex: 0x8E8E93))
+                                }
+                                .frame(minHeight: 48)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
                 if !aSavoir.isEmpty {
@@ -213,4 +239,10 @@ struct EditionView: View {
             }
         }
     }
+}
+
+struct IdentifiantCouple: Identifiable {
+    let sujet: UUID
+    let conjoint: UUID
+    var id: String { "\(sujet)-\(conjoint)" }
 }

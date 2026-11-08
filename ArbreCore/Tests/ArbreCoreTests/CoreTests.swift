@@ -421,3 +421,18 @@ final class AllianceTests: XCTestCase {
         XCTAssertTrue(f.estDeLaFamille(gm.id))
     }
 }
+
+final class EnfantsCommunsTests: XCTestCase {
+    func testSecondWifeTakesHerChildrenFromFirstWife() {
+        var (f, _, pere, mere, _) = familleTest()
+        let fayna = Personne(prenom: "Fayna", sexe: .femme)
+        f = ajouterProche(fayna, a: pere.id, lien: .enfant, famille: f)
+        XCTAssertEqual(Set(f.parents(de: fayna.id).map(\.id)), [pere.id, mere.id], "lié d'office à la seule épouse")
+        let halima = Personne(prenom: "Halima", sexe: .femme)
+        f = ajouterProche(halima, a: pere.id, lien: .conjoint, famille: f)
+        f = definirEnfantsCommuns(pere.id, avec: halima.id, enfants: [fayna.id], famille: f)
+        XCTAssertEqual(Set(f.parents(de: fayna.id).map(\.id)), [pere.id, halima.id])
+        f = definirEnfantsCommuns(pere.id, avec: halima.id, enfants: [], famille: f)
+        XCTAssertEqual(f.parents(de: fayna.id).map(\.id), [pere.id])
+    }
+}

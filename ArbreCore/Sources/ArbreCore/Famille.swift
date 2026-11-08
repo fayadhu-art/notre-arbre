@@ -245,6 +245,10 @@ public struct Famille: Codable, Equatable, Sendable {
         liensParent.append(LienParent(parent: parent, enfant: enfant))
     }
 
+    public mutating func retirerParent(_ parent: UUID, enfant: UUID) {
+        liensParent.removeAll { $0.parent == parent && $0.enfant == enfant }
+    }
+
     public mutating func lierCouple(_ a: UUID, _ b: UUID) {
         guard a != b, !couples.contains(where: { ($0.a == a && $0.b == b) || ($0.a == b && $0.b == a) }) else { return }
         couples.append(Couple(a: a, b: b))

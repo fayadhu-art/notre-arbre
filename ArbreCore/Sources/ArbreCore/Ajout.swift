@@ -27,3 +27,19 @@ public func ajouterProche(_ p: Personne, a sujet: UUID, lien: LienAjout, famille
     }
     return f
 }
+
+/// Choisit, parmi les enfants de `sujet`, ceux qu'il a eus avec `conjoint`.
+/// Un enfant coché est relié au conjoint (et détaché d'un autre parent éventuel) ; un enfant décoché est détaché du conjoint.
+public func definirEnfantsCommuns(_ sujet: UUID, avec conjoint: UUID, enfants choisis: Set<UUID>, famille: Famille) -> Famille {
+    var f = famille
+    for e in f.enfants(de: sujet).map(\.id) {
+        let autres = f.parents(de: e).map(\.id).filter { $0 != sujet }
+        if choisis.contains(e) {
+            for a in autres where a != conjoint { f.retirerParent(a, enfant: e) }
+            f.lierParent(conjoint, enfant: e)
+        } else if autres.contains(conjoint) {
+            f.retirerParent(conjoint, enfant: e)
+        }
+    }
+    return f
+}

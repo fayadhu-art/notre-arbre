@@ -14,6 +14,8 @@ struct FormulaireAjoutView: View {
     @State private var notes = ""
     /// Autre parent d'un enfant, ou parents en commun d'un frère ou d'une sœur.
     @State private var choixParents = ""
+    /// Enfants déjà dans l'arbre, eus avec le nouveau conjoint.
+    @State private var enfantsCommuns: Set<UUID> = []
     @FocusState private var champPrenom: Bool
 
     var body: some View {
@@ -49,6 +51,10 @@ struct FormulaireAjoutView: View {
                     } header: {
                         Text(ajout.lien == .enfant ? "Qui est l'autre parent ?" : "Même père et même mère ?")
                     }
+                }
+                if ajout.lien == .conjoint, !model.famille.enfants(de: ajout.pour).isEmpty {
+                    ChoixEnfants(sujet: ajout.pour, conjoint: nil, choisis: $enfantsCommuns,
+                                 titre: prenom.isEmpty ? "Enfants eus ensemble" : "Enfants eus avec \(prenom.trimmingCharacters(in: .whitespaces))")
                 }
                 Section("Notes") {
                     TextField("Ce que tu sais d'autre", text: $notes, axis: .vertical).lineLimit(2...6)
@@ -132,7 +138,7 @@ struct FormulaireAjoutView: View {
                          origine: .saisie)
         fermer()
         let choisis = optionsParents.isEmpty ? nil : optionsParents.first { $0.cle == choixParents }?.ids
-        model.ajouter(p, a: ajout.pour, lien: ajout.lien, parentsChoisis: choisis)
+        model.ajouter(p, a: ajout.pour, lien: ajout.lien, parentsChoisis: choisis, enfantsCommuns: enfantsCommuns)
     }
 }
 
@@ -145,6 +151,66 @@ struct MenuAjout: View {
         ForEach(model.liensPossibles(id), id: \.self) { l in
             Button { model.ajout = Ajout(pour: id, lien: l) } label: {
                 Label(l.action(pour: model.famille.personne(id), famille: model.famille), systemImage: l.icone)
+            }
+        }
+    }
+}
+
+/// Liste à cocher des enfants de `sujet`, pour dire lesquels il a eus avec un conjoint.
+struct ChoixEnfants: View {
+    @Environment(AppModel.self) private var model
+    let sujet: UUID
+    let conjoint: UUID?
+    @Binding var choisis: Set<UUID>
+    let titre: String
+
+    var body: some View {
+        let f = model.famille
+        Section {
+            ForEach(f.enfants(de: sujet)) { e in
+                let autre = f.parents(de: e.id).first { $0.id != sujet && $0.id != conjoint }
+                Toggle(isOn: Binding(get: { choisis.contains(e.id) },
+                                     set: { if $0 { choisis.insert(e.id) } else { choisis.remove(e.id) } })) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(e.nomComplet)
+                        if let autre { Text("Aujourd'hui relié à \(autre.prenom)").font(.footnote).foregroundStyle(Color.gris) }
+                    }
+                }
+                .tint(Color.turquoise)
+            }
+        } header: {
+            Text(titre)
+        } footer: {
+            Text("Coche les enfants qu'ils ont eus ensemble. Ils seront placés sous ce couple dans l'arbre.")
+        }
+    }
+}
+
+/// Feuille ouverte depuis la fiche d'un conjoint pour relier ses enfants plus tard.
+struct EnfantsDuCoupleView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var fermer
+    let sujet: UUID
+    let conjoint: UUID
+    @State private var choisis: Set<UUID> = []
+
+    var body: some View {
+        let f = model.famille
+        NavigationStack {
+            Form {
+                ChoixEnfants(sujet: sujet, conjoint: conjoint, choisis: $choisis,
+                             titre: "Enfants de \(f.personne(sujet)?.prenom ?? "") avec \(f.personne(conjoint)?.prenom ?? "")")
+            }
+            .navigationTitle("Enfants du couple")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Annuler") { fermer() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Enregistrer") { model.definirEnfants(de: sujet, avec: conjoint, choisis); fermer() }
+                }
+            }
+            .onAppear {
+                choisis = Set(f.enfants(de: sujet).filter { e in f.parents(de: e.id).contains { $0.id == conjoint } }.map(\.id))
             }
         }
     }

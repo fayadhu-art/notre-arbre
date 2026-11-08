@@ -87,9 +87,12 @@ final class AppModel {
     }
 
     /// Ajoute une personne saisie dans le formulaire. Ouvre l'écran « Objectif atteint » au 5e ajout du jour.
-    func ajouter(_ p: Personne, a sujet: UUID, lien: LienAjout, parentsChoisis: [UUID]? = nil) {
+    func ajouter(_ p: Personne, a sujet: UUID, lien: LienAjout, parentsChoisis: [UUID]? = nil, enfantsCommuns: Set<UUID> = []) {
         let avant = ajoutsAujourdhui.count
         famille = ajouterProche(p, a: sujet, lien: lien, famille: famille, parentsChoisis: parentsChoisis)
+        if lien == .conjoint, !enfantsCommuns.isEmpty {
+            famille = definirEnfantsCommuns(sujet, avec: p.id, enfants: enfantsCommuns, famille: famille)
+        }
         enregistrer()
         if avant < Objectif.cible && ajoutsAujourdhui.count >= Objectif.cible {
             // Laisse le formulaire se fermer avant d'afficher l'écran de victoire.
@@ -107,6 +110,11 @@ final class AppModel {
     }
 
     func modifier(_ p: Personne) { famille.ajouter(p); enregistrer() }
+
+    func definirEnfants(de sujet: UUID, avec conjoint: UUID, _ enfants: Set<UUID>) {
+        famille = definirEnfantsCommuns(sujet, avec: conjoint, enfants: enfants, famille: famille)
+        enregistrer()
+    }
 
     func supprimer(_ id: UUID) {
         guard id != famille.moiID else { return }
