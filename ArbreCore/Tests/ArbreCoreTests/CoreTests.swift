@@ -570,3 +570,18 @@ final class CouleursTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(Set(r.traits.map(\.groupe)).count, 3)
     }
 }
+
+final class CouleurCoupleTests: XCTestCase {
+    func testChildrenLinkedToOneSpouseShareTheCoupleColor() {
+        var (f, moi, _, _, _) = familleTest()
+        let insya = Personne(prenom: "Insya", nom: "Ahamada", sexe: .femme)
+        f = ajouterProche(insya, a: moi.id, lien: .enfant, famille: f)          // ajoutée avant l'épouse : un seul parent
+        let fatuma = Personne(prenom: "Fatuma", nom: "Issoufi", sexe: .femme)
+        f = ajouterProche(fatuma, a: moi.id, lien: .conjoint, famille: f)
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 150)
+        let m = r.noeuds.first { $0.id == moi.id }!, e = r.noeuds.first { $0.id == fatuma.id }!, i = r.noeuds.first { $0.id == insya.id }!
+        let couple = r.traits.first { $0.de.1 == m.y && $0.a.1 == m.y && Set([$0.de.0, $0.a.0]) == Set([m.x, e.x]) }!.groupe
+        let versInsya = r.traits.first { $0.de.0 == i.x && $0.a.1 == i.y }!.groupe
+        XCTAssertEqual(couple, versInsya, "le trait du couple et ceux de ses enfants ont la même couleur")
+    }
+}

@@ -190,7 +190,10 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
     // 5. Traits : couples, puis familles (parents → enfants). Chaque famille a son numéro de couleur.
     var traits: [Trait] = []
     var groupes: [String: Int] = [:]
-    func groupe(_ ps: [String]) -> Int {
+    func groupe(_ ps0: [String]) -> Int {
+        // Parent seul marié à une seule personne : ses enfants prennent la couleur de son couple.
+        var ps = ps0
+        if ps.count == 1, let conj = conjointsDe[ps[0]], conj.count == 1 { ps = [ps[0], conj[0]] }
         let k = ps.sorted().joined(separator: "|")
         if let g = groupes[k] { return g }
         groupes[k] = groupes.count
