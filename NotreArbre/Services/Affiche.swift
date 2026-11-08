@@ -49,7 +49,7 @@ struct AfficheContenu: View {
 
     var body: some View {
         let marge = 20 * 72 / 25.4
-        let d = disposer(famille)
+        let d = disposer(famille, largeurNoeud: ArbreDessin.largeur)
         let hautTitre = taille.height * 0.09
         let basPied = taille.height * 0.03
         let dispo = CGSize(width: taille.width - 2 * marge, height: taille.height - 2 * marge - hautTitre - basPied - 40)

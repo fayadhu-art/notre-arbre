@@ -33,8 +33,9 @@ public struct Personne: Codable, Identifiable, Hashable, Sendable {
     public var nomComplet: String { nom.isEmpty ? prenom : "\(prenom) \(nom)" }
 
     public var initiales: String {
-        let lettres = prenom.filter { $0.isLetter }
-        return String(lettres.prefix(2)).uppercased()
+        let p = prenom.filter { $0.isLetter }, n = nom.filter { $0.isLetter }
+        if let a = p.first, let b = n.first { return "\(a)\(b)".uppercased() }
+        return String(p.prefix(2)).uppercased()
     }
 
     /// « né », « née » ou « né(e) ».

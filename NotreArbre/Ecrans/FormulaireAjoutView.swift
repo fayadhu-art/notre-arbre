@@ -10,21 +10,19 @@ struct FormulaireAjoutView: View {
     @State private var prenom = ""
     @State private var nom = ""
     @State private var sexe: Sexe = .inconnu
-    @State private var dateTexte = ""
     @State private var lieu = ""
     @State private var notes = ""
     @FocusState private var champPrenom: Bool
 
     var body: some View {
         let sujet = model.famille.personne(ajout.pour)
-        let date = DateFloue.depuis(texte: dateTexte)
         NavigationStack {
             Form {
                 Section {
                     TextField("Prénom", text: $prenom)
                         .textContentType(.givenName)
                         .focused($champPrenom)
-                    TextField("Nom (facultatif)", text: $nom)
+                    TextField("Nom", text: $nom)
                         .textContentType(.familyName)
                     if ajout.lien != .pere && ajout.lien != .mere {
                         Picker("Sexe", selection: $sexe) {
@@ -37,16 +35,9 @@ struct FormulaireAjoutView: View {
                     Text(titre(sujet))
                 }
                 Section {
-                    TextField("Ex. vers 1958, 1958, 12 mars 1985", text: $dateTexte)
-                    if !dateTexte.trimmingCharacters(in: .whitespaces).isEmpty {
-                        Label("Compris : \(date.libelle)", systemImage: date.precision == .inconnue ? "questionmark.circle" : "checkmark.circle")
-                            .foregroundStyle(date.precision == .inconnue ? Color.corailTexte : Color.turquoise)
-                    }
-                    TextField("Village de naissance", text: $lieu)
-                } header: {
-                    Text("Naissance")
+                    TextField("Village de naissance (facultatif)", text: $lieu)
                 } footer: {
-                    Text("Laisse vide si tu ne sais pas. Tu pourras compléter plus tard.")
+                    Text("Le prénom et le nom sont obligatoires. Le reste peut attendre.")
                 }
                 Section("Notes") {
                     TextField("Ce que tu sais d'autre", text: $notes, axis: .vertical).lineLimit(2...6)
@@ -57,8 +48,8 @@ struct FormulaireAjoutView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Annuler") { fermer() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Enregistrer") { enregistrer(date) }
-                        .disabled(prenom.trimmingCharacters(in: .whitespaces).isEmpty)
+                    Button("Enregistrer") { enregistrer() }
+                        .disabled(prenom.trimmingCharacters(in: .whitespaces).isEmpty || nom.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
             .onAppear {
@@ -84,11 +75,10 @@ struct FormulaireAjoutView: View {
         }
     }
 
-    private func enregistrer(_ date: DateFloue) {
+    private func enregistrer() {
         let p = Personne(prenom: prenom.trimmingCharacters(in: .whitespaces).majusculeInitiale,
                          nom: nom.trimmingCharacters(in: .whitespaces),
                          sexe: sexe,
-                         naissance: dateTexte.trimmingCharacters(in: .whitespaces).isEmpty ? .inconnue : date,
                          lieuNaissance: lieu.trimmingCharacters(in: .whitespaces).isEmpty ? nil : lieu.trimmingCharacters(in: .whitespaces).majusculeInitiale,
                          notes: notes,
                          origine: .saisie)

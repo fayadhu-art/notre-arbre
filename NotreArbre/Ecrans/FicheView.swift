@@ -113,8 +113,7 @@ struct FicheView: View {
 
     private func sousTitre(_ p: Personne) -> String {
         var morceaux: [String] = []
-        if p.naissance.precision != .inconnue { morceaux.append("\(p.neAccorde.majusculeInitiale) \(p.naissance.libelle)") }
-        if let l = p.lieuNaissance, !l.isEmpty { morceaux.append("à \(l)") }
+        if let l = p.lieuNaissance, !l.isEmpty { morceaux.append("\(p.neAccorde.majusculeInitiale) à \(l)") }
         let lien = model.famille.lienAvecMoi(p.id)
         if !lien.isEmpty { morceaux.append(lien) }
         return morceaux.joined(separator: " · ")
@@ -123,9 +122,7 @@ struct FicheView: View {
     private func liensDe(_ p: Personne) -> [(Personne, String)] {
         let f = model.famille
         func detail(_ x: Personne, _ role: String) -> String {
-            let date = x.naissance.precision == .inconnue ? "" : " · \(x.neAccorde) \(x.naissance.libelle)"
-            let toi = x.id == f.moiID ? " · toi" : ""
-            return role + date + toi
+            return role + (x.id == f.moiID ? " · toi" : "")
         }
         var l: [(Personne, String)] = []
         l += f.parents(de: p.id).map { ($0, detail($0, $0.sexe == .femme ? "Sa mère" : "Son père")) }
@@ -140,7 +137,7 @@ struct FicheView: View {
         case .parents, .grandsParents: "Ses parents"
         case .freresSoeurs: "Ses frères et sœurs"
         case .enfants: "Ses enfants"
-        case .dateNaissance: "Son année de naissance"
+        case .dateNaissance: "Sa date de naissance"
         case .lieuNaissance: "Son village de naissance"
         }
     }
@@ -159,7 +156,6 @@ struct EditionView: View {
     @Environment(\.dismiss) private var fermer
     @State var personne: Personne
     let supprimer: () -> Void
-    @State private var dateTexte = ""
     @State private var confirmer = false
 
     var body: some View {
@@ -174,11 +170,9 @@ struct EditionView: View {
                         Text("Je ne sais pas").tag(Sexe.inconnu)
                     }
                 }
-                Section {
-                    TextField("Ex. vers 1958, 12 mars 1985", text: $dateTexte)
-                    Text("Compris : \(DateFloue.depuis(texte: dateTexte).libelle)").foregroundStyle(Color.gris)
-                    TextField("Village de naissance", text: Binding(get: { personne.lieuNaissance ?? "" }, set: { personne.lieuNaissance = $0 }))
-                } header: { Text("Naissance") }
+                Section("Naissance") {
+                    TextField("Village de naissance (facultatif)", text: Binding(get: { personne.lieuNaissance ?? "" }, set: { personne.lieuNaissance = $0 }))
+                }
                 Section("Notes") {
                     TextField("Ce que tu sais d'autre", text: $personne.notes, axis: .vertical).lineLimit(3...8)
                 }
@@ -194,11 +188,10 @@ struct EditionView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Annuler") { fermer() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Enregistrer") {
-                        personne.naissance = dateTexte.trimmingCharacters(in: .whitespaces).isEmpty ? .inconnue : DateFloue.depuis(texte: dateTexte)
                         model.modifier(personne)
                         fermer()
                     }
-                    .disabled(personne.prenom.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(personne.prenom.trimmingCharacters(in: .whitespaces).isEmpty || personne.nom.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
             .confirmationDialog("Supprimer \(personne.prenom) de l'arbre ?", isPresented: $confirmer, titleVisibility: .visible) {
@@ -208,7 +201,6 @@ struct EditionView: View {
                     supprimer()
                 }
             }
-            .onAppear { dateTexte = personne.naissance.precision == .inconnue ? "" : personne.naissance.libelle }
         }
     }
 }

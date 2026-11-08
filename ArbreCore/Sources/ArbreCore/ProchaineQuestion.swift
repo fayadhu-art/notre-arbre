@@ -23,9 +23,6 @@ public func manques(_ f: Famille, enAttente: Set<Manque>, traites: Set<Manque> =
     }
     if f.freresEtSoeurs(de: moi).isEmpty { liste.append(Manque(personne: moi, sujet: .freresSoeurs)) }
     if f.enfants(de: moi).isEmpty { liste.append(Manque(personne: moi, sujet: .enfants)) }
-    for p in f.personnes where p.naissance.precision == .inconnue {
-        liste.append(Manque(personne: p.id, sujet: .dateNaissance))
-    }
     for p in f.personnes where (p.lieuNaissance ?? "").isEmpty {
         liste.append(Manque(personne: p.id, sujet: .lieuNaissance))
     }

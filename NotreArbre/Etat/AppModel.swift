@@ -127,9 +127,8 @@ final class AppModel {
 
     func resume(_ id: UUID) -> String {
         guard let p = famille.personne(id) else { return "" }
-        let lien = famille.lienAvecMoi(id)
-        let date = p.naissance.precision == .inconnue ? "" : " · \(p.neAccorde) \(p.naissance.libelle)"
-        return lien.majusculeInitiale + date
+        let lieu = (p.lieuNaissance ?? "").isEmpty ? "" : " · \(p.lieuNaissance!)"
+        return famille.lienAvecMoi(id).majusculeInitiale + lieu
     }
 
     func suggestion(_ m: Manque) -> String {

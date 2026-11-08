@@ -126,7 +126,7 @@ struct PremierLancementView: View {
                 VStack(spacing: 0) {
                     TextField("Ton prénom", text: $prenom).textContentType(.givenName).padding(16)
                     Divider()
-                    TextField("Ton nom (facultatif)", text: $nom).textContentType(.familyName).padding(16)
+                    TextField("Ton nom", text: $nom).textContentType(.familyName).padding(16)
                 }
                 .carteVerre(22)
                 Picker("Tu es", selection: $sexe) {
@@ -142,7 +142,7 @@ struct PremierLancementView: View {
                         .frame(maxWidth: .infinity).frame(height: 58)
                 }
                 .verreTeinte(rayon: 29)
-                .disabled(prenom.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(prenom.trimmingCharacters(in: .whitespaces).isEmpty || nom.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             .padding(24)
         }

@@ -313,3 +313,15 @@ final class AjoutTests: XCTestCase {
         XCTAssertEqual(g.personnes.count, f.personnes.count + 1)
     }
 }
+
+final class AffichageTests: XCTestCase {
+    func testBirthDateIsNeverAsked() {
+        let (f, _, _, _, _) = familleTest()
+        XCTAssertFalse(manques(f, enAttente: []).contains { $0.sujet == .dateNaissance })
+    }
+
+    func testInitialsUseFirstAndLastName() {
+        XCTAssertEqual(Personne(prenom: "Fayadhu", nom: "Ahamada").initiales, "FA")
+        XCTAssertEqual(Personne(prenom: "Mariama").initiales, "MA")
+    }
+}

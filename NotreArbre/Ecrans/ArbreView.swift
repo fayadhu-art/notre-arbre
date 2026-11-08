@@ -3,13 +3,14 @@ import ArbreCore
 
 /// Le dessin de l'arbre, réutilisé à l'écran et pour l'affiche PDF.
 struct ArbreDessin: View {
+    static let largeur: Double = 104
     let famille: Famille
     var pourImpression = false
     var surPersonne: ((UUID) -> Void)? = nil
     var surATrouver: ((Noeud) -> Void)? = nil
 
     var body: some View {
-        let d = disposer(famille)
+        let d = disposer(famille, largeurNoeud: Self.largeur)
         ZStack(alignment: .topLeading) {
             Path { p in
                 for t in d.traits where !t.pointille {
@@ -27,23 +28,21 @@ struct ArbreDessin: View {
             ForEach(d.noeuds, id: \.cle) { n in
                 cercle(n).position(x: n.x, y: n.y)
                 Text(n.libelle)
-                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.encre)
-                    .lineLimit(1).frame(width: 84)
-                    .position(x: n.x, y: n.y + 40)
+                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.encre)
+                    .lineLimit(1).minimumScaleFactor(0.7).frame(width: Self.largeur)
+                    .position(x: n.x, y: n.y + 41)
                 Text(sousTitre(n))
-                    .font(.system(size: 12)).foregroundStyle(Color.gris)
-                    .lineLimit(1).minimumScaleFactor(0.8).frame(width: 84)
-                    .position(x: n.x, y: n.y + 56)
+                    .font(.system(size: 12, weight: n.id == nil ? .regular : .medium))
+                    .foregroundStyle(n.id == nil ? Color.gris : Color.encre.opacity(0.75))
+                    .lineLimit(1).minimumScaleFactor(0.7).frame(width: Self.largeur)
+                    .position(x: n.x, y: n.y + 58)
             }
         }
         .frame(width: d.taille.0, height: d.taille.1, alignment: .topLeading)
     }
 
     private func sousTitre(_ n: Noeud) -> String {
-        if let id = n.id, let p = famille.personne(id) {
-            if id == famille.moiID { return "toi" }
-            return p.naissance.precision == .inconnue ? "date inconnue" : p.naissance.libelle
-        }
+        if let id = n.id, let p = famille.personne(id) { return p.nom.uppercased() }
         guard let pour = n.pour, let enfant = famille.personne(pour) else { return "" }
         let role = n.role == .femme ? "mère" : "père"
         let voyelle = "aeiouyhAEIOUYHÉé".contains(enfant.prenom.first ?? "x")
@@ -70,7 +69,7 @@ struct ArbreDessin: View {
             }
             .onTapGesture { surPersonne?(id) }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(p.prenom), \(sousTitre(n))")
+            .accessibilityLabel(p.nomComplet)
             .accessibilityAddTraits(.isButton)
         } else {
             Text("?")
@@ -111,7 +110,6 @@ struct ArbreView: View {
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    puce { Text("« vers 1958 » = année approximative") }
                     puce { HStack(spacing: 6) { Circle().stroke(Color.turquoise, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2])).frame(width: 12, height: 12); Text("à compléter") } }
                     puce { HStack(spacing: 6) { Circle().fill(Color.corail).frame(width: 12, height: 12); Text("côté père"); Circle().fill(Color.violet).frame(width: 12, height: 12).padding(.leading, 6); Text("côté mère") } }
                 }
@@ -122,7 +120,7 @@ struct ArbreView: View {
         .frame(maxHeight: .infinity, alignment: .top)
         .overlay(alignment: .top) {
             ScrollView([.horizontal, .vertical], showsIndicators: false) {
-                let d = disposer(model.famille)
+                let d = disposer(model.famille, largeurNoeud: ArbreDessin.largeur)
                 ArbreDessin(famille: model.famille,
                             surPersonne: { choix = $0 },
                             surATrouver: { n in
