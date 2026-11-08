@@ -292,7 +292,6 @@ struct EnfantsDuCoupleView: View {
                     }
                 }
             }
-            .onChange(of: choixParents) { existantsChoisis = [] }
             .onAppear {
                 choisis = Set(f.enfants(de: sujet).filter { e in f.parents(de: e.id).contains { $0.id == conjoint } }.map(\.id))
             }
