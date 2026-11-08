@@ -502,3 +502,55 @@ final class FratriesGroupeesTests: XCTestCase {
         XCTAssertEqual(traitsTraversantUnNom(r), [])
     }
 }
+
+/// Deux traits qui se croisent vraiment (pas un simple raccord en T ou en coin).
+private func croisements(_ traits: [Trait]) -> Int {
+    let e = 0.01
+    let h = traits.filter { abs($0.de.1 - $0.a.1) < e && abs($0.de.0 - $0.a.0) > e }
+    let v = traits.filter { abs($0.de.0 - $0.a.0) < e && abs($0.de.1 - $0.a.1) > e }
+    var n = 0
+    for a in h {
+        let x1 = min(a.de.0, a.a.0), x2 = max(a.de.0, a.a.0), y = a.de.1
+        for b in v {
+            let y1 = min(b.de.1, b.a.1), y2 = max(b.de.1, b.a.1), x = b.de.0
+            if x > x1 + e && x < x2 - e && y > y1 + e && y < y2 - e { n += 1 }
+        }
+    }
+    return n
+}
+
+final class CroisementsTests: XCTestCase {
+    /// L'arbre de la capture : mère avec trois maris, enfants de chaque couple, moi marié avec enfants.
+    func testRealFamilyHasNoCrossingLines() {
+        var (f, moi, pere, mere, _) = familleTest()
+        let fatuma = Personne(prenom: "Fatuma", nom: "Issoufi", sexe: .femme)
+        f = ajouterProche(fatuma, a: moi.id, lien: .conjoint, famille: f)
+        for n in ["Nassem", "Azzam", "Annaelle"] { f = ajouterProche(Personne(prenom: n, nom: "Ahamada"), a: moi.id, lien: .enfant, famille: f) }
+        f = ajouterProche(Personne(prenom: "Ben Anli", nom: "Ahamada", sexe: .homme), a: moi.id, lien: .fratrie, famille: f, parentsChoisis: [pere.id, mere.id])
+        let antoissi = Personne(prenom: "Antoissi", sexe: .homme), mohamadi = Personne(prenom: "Mohamadi", nom: "Palmeya", sexe: .homme)
+        f = ajouterProche(antoissi, a: mere.id, lien: .conjoint, famille: f)
+        f = ajouterProche(mohamadi, a: mere.id, lien: .conjoint, famille: f)
+        f = ajouterProche(Personne(prenom: "Fayna", nom: "Palmeya"), a: mere.id, lien: .enfant, famille: f, parentsChoisis: [mohamadi.id])
+        f = ajouterProche(Personne(prenom: "Chamouine", nom: "Antoissi"), a: mere.id, lien: .enfant, famille: f, parentsChoisis: [antoissi.id])
+        f = ajouterProche(Personne(prenom: "Fainouni", nom: "Palmeya"), a: mere.id, lien: .enfant, famille: f, parentsChoisis: [mohamadi.id])
+        let tante = Personne(prenom: "Mouhaza", nom: "Matoir", sexe: .femme)
+        f = ajouterProche(tante, a: mere.id, lien: .fratrie, famille: f)
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 150)
+        XCTAssertEqual(croisements(r.traits), 0, "aucun trait ne doit en croiser un autre")
+        XCTAssertEqual(traitsTraversantUnNom(r), [])
+    }
+
+    func testThreeWivesHasNoCrossingLines() {
+        let h = Personne(prenom: "Ahamada", sexe: .homme)
+        var f = Famille(moiID: h.id)
+        f.ajouter(h)
+        for nom in ["Zaharia", "Halima", "Echati"] {
+            let e = Personne(prenom: nom, sexe: .femme)
+            f = ajouterProche(e, a: h.id, lien: .conjoint, famille: f)
+            for i in 1...3 { f = ajouterProche(Personne(prenom: "\(nom) \(i)"), a: h.id, lien: .enfant, famille: f, parentsChoisis: [e.id]) }
+        }
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 150)
+        XCTAssertEqual(croisements(r.traits), 0)
+        XCTAssertEqual(traitsTraversantUnNom(r), [])
+    }
+}
