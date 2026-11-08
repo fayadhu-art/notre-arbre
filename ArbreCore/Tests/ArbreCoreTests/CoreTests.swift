@@ -628,3 +628,20 @@ final class CotePaternelTests: XCTestCase {
         _ = moi
     }
 }
+
+final class FamilleVisibleTests: XCTestCase {
+    func testChildrenOfOneSpouseHangFromTheCoupleLine() {
+        var (f, moi, _, _, _) = familleTest()
+        let insya = Personne(prenom: "Insya", nom: "Ahamada", sexe: .femme)
+        f = ajouterProche(insya, a: moi.id, lien: .enfant, famille: f)
+        let fatuma = Personne(prenom: "Fatuma", nom: "Issoufi", sexe: .femme)
+        f = ajouterProche(fatuma, a: moi.id, lien: .conjoint, famille: f)
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 150)
+        let m = r.noeuds.first { $0.id == moi.id }!, e = r.noeuds.first { $0.id == fatuma.id }!
+        let milieu = (m.x + e.x) / 2
+        XCTAssertTrue(r.traits.contains { abs($0.de.0 - milieu) < 0.01 && abs($0.de.1 - m.y) < 0.01 && $0.a.1 > m.y },
+                      "le trait vers les enfants part du milieu du trait du couple")
+        XCTAssertEqual(croisements(r.traits), 0)
+        XCTAssertEqual(traitsTraversantUnNom(r), [])
+    }
+}

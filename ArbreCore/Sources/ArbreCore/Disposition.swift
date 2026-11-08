@@ -146,7 +146,11 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
     func nbConjoints(_ c: String) -> Int { conjointsDe[c]?.count ?? 0 }
     /// Point d'où descend le trait d'une famille : entre les parents s'ils sont côte à côte,
     /// sinon au-dessous du parent « extérieur » (conjoint éloigné) ou du parent seul.
-    func depart(_ parents: [String]) -> (x: Double, sousLeNom: Bool)? {
+    func depart(_ parents0: [String]) -> (x: Double, sousLeNom: Bool)? {
+        // Parent seul marié à une seule personne : on dessine la famille depuis le couple,
+        // pour qu'on voie bien le père, la mère et les enfants ensemble.
+        var parents = parents0
+        if parents.count == 1, let conj = conjointsDe[parents[0]], conj.count == 1 { parents = [parents[0], conj[0]] }
         let xs = parents.compactMap { x[$0] }
         guard xs.count == parents.count, !xs.isEmpty else { return nil }
         if xs.count == 2 {
