@@ -436,3 +436,48 @@ final class EnfantsCommunsTests: XCTestCase {
         XCTAssertEqual(f.parents(de: fayna.id).map(\.id), [pere.id])
     }
 }
+
+/// Vérifie qu'aucun trait ne passe dans la zone du prénom, du nom et de la parenté d'une personne.
+private func traitsTraversantUnNom(_ r: (noeuds: [Noeud], traits: [Trait], taille: (Double, Double)), demiLargeur: Double = 52) -> [String] {
+    var fautes: [String] = []
+    for t in r.traits {
+        let (x1, y1) = t.de, (x2, y2) = t.a
+        for n in r.noeuds {
+            let gauche = n.x - demiLargeur, droite = n.x + demiLargeur, haut = n.y + 30, bas = n.y + 84
+            let horizontal = abs(y1 - y2) < 0.01
+            let coupe = horizontal
+                ? (y1 > haut && y1 < bas && max(x1, x2) > gauche && min(x1, x2) < droite)
+                : (x1 > gauche && x1 < droite && max(y1, y2) > haut && min(y1, y2) < bas)
+            if coupe { fautes.append(n.libelle) }
+        }
+    }
+    return fautes
+}
+
+final class TraitsNomsTests: XCTestCase {
+    func testWomanWithThreeHusbandsNoLineThroughNames() {
+        var (f, moi, pere, mere, _) = familleTest()
+        for (nom, enfant) in [("Antoissi", "Chamouine"), ("Mohamadi", "Fayna")] {
+            let mari = Personne(prenom: nom, sexe: .homme)
+            f = ajouterProche(mari, a: mere.id, lien: .conjoint, famille: f)
+            f = ajouterProche(Personne(prenom: enfant, sexe: .femme), a: mere.id, lien: .enfant, famille: f, parentsChoisis: [mari.id])
+        }
+        f = ajouterProche(Personne(prenom: "Ben", sexe: .homme), a: moi.id, lien: .fratrie, famille: f, parentsChoisis: [pere.id, mere.id])
+        f = ajouterProche(Personne(prenom: "Azzam", sexe: .homme), a: moi.id, lien: .enfant, famille: f)
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 150)
+        XCTAssertEqual(traitsTraversantUnNom(r), [])
+    }
+
+    func testThreeWivesNoLineThroughNames() {
+        let h = Personne(prenom: "Ahamada", sexe: .homme)
+        var f = Famille(moiID: h.id)
+        f.ajouter(h)
+        for nom in ["Zaharia", "Halima", "Echati"] {
+            let e = Personne(prenom: nom, sexe: .femme)
+            f = ajouterProche(e, a: h.id, lien: .conjoint, famille: f)
+            for i in 1...2 { f = ajouterProche(Personne(prenom: "\(nom) \(i)"), a: h.id, lien: .enfant, famille: f, parentsChoisis: [e.id]) }
+        }
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 150)
+        XCTAssertEqual(traitsTraversantUnNom(r), [])
+    }
+}

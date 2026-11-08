@@ -172,15 +172,34 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
         let k = ps.sorted().joined(separator: "|")
         familles[k, default: (ps, [])].enfants.append(cle)
     } }
-    for (_, fam) in familles {
+    // Ordre stable des familles, et un léger décalage vertical entre familles d'une même rangée
+    // pour que leurs traits ne se confondent pas.
+    let famillesTriees = familles.values.sorted { (rang[$0.enfants[0]] ?? 0) < (rang[$1.enfants[0]] ?? 0) }
+    var parRangee: [Double: Int] = [:]
+    let sousLesNoms = ecartGeneration * 0.58
+    for fam in famillesTriees {
         let pp = fam.parents.map(pos)
-        let mx = pp.map(\.0).reduce(0, +) / Double(pp.count)
         let py = pp[0].1
-        let midY = py + ecartGeneration * 0.62
+        let k = parRangee[py, default: 0]
+        parRangee[py] = k + 1
+        let midY = py + ecartGeneration * 0.62 + Double(k % 3) * 8
         let pointille = fam.parents.contains { elements[$0]!.id == nil }
         let xs = fam.enfants.map { pos($0).0 }
-        // Un seul parent : le trait part sous son nom au lieu de le traverser.
-        let depart = fam.parents.count == 1 ? py + ecartGeneration * 0.58 : py
+        // Départ du trait : entre les deux parents s'ils sont côte à côte ; sinon sous le nom du parent
+        // (parent seul, ou conjoint éloigné d'une personne mariée plusieurs fois). Jamais à travers un nom.
+        let mx: Double, depart: Double
+        if pp.count == 2, abs(pp[0].0 - pp[1].0) <= espaceCouple + 0.5 {
+            mx = (pp[0].0 + pp[1].0) / 2
+            depart = py
+        } else if pp.count == 2 {
+            let nb = { (c: String) in conjointsDe[c]?.count ?? 0 }
+            let exterieur = nb(fam.parents[0]) <= nb(fam.parents[1]) ? 0 : 1
+            mx = pp[exterieur].0
+            depart = py + sousLesNoms
+        } else {
+            mx = pp[0].0
+            depart = py + sousLesNoms
+        }
         traits.append(Trait(de: (mx, depart), a: (mx, midY), pointille: pointille))
         let gauche = min(mx, xs.min()!), droite = max(mx, xs.max()!)
         if droite > gauche { traits.append(Trait(de: (gauche, midY), a: (droite, midY), pointille: pointille)) }
