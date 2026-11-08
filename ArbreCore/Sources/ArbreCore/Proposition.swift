@@ -113,7 +113,8 @@ public func construireProposition(extraits: [Extrait], aucun: Bool, manque: Manq
 /// Lecture simple d'une réponse tapée, quand l'IA d'Apple n'est pas disponible.
 public func extraitsSimples(reponse: String, manque: Manque?) -> (extraits: [Extrait], aucun: Bool) {
     let t = plier(reponse)
-    let aucun = ["aucun", "aucune", "pas de", "personne", "non"].contains { t == $0 || t.hasPrefix($0 + " ") || t.contains(" " + $0 + " ") }
+    let mots = Set(t.split { !$0.isLetter }.map(String.init))
+    let aucun = !mots.isDisjoint(with: ["aucun", "aucune", "personne", "non"]) || t.contains("pas de")
     let sujet = manque?.sujet
     if sujet == .dateNaissance { return ([Extrait(lien: "lui-même", dateTexte: reponse)], false) }
     if sujet == .lieuNaissance {
