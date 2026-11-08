@@ -74,7 +74,7 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
     // 2. Couples : conjoints déclarés et paires de parents d'un même enfant.
     var partenaire: [String: String] = [:]
     func unir(_ a: String, _ b: String) {
-        guard partenaire[a] == nil, partenaire[b] == nil, elements[a]!.gen == elements[b]!.gen else { return }
+        guard let ea = elements[a], let eb = elements[b], partenaire[a] == nil, partenaire[b] == nil, ea.gen == eb.gen else { return }
         partenaire[a] = b; partenaire[b] = a
     }
     for c in f.couples { unir(c.a.uuidString, c.b.uuidString) }

@@ -122,6 +122,12 @@ final class DispositionTests: XCTestCase {
         }
     }
 
+    func testCoupleWithMissingPersonDoesNotCrash() {
+        var (f, moi, _, _, _) = familleTest()
+        f.couples.append(Couple(a: moi.id, b: UUID()))
+        XCTAssertFalse(disposer(f).noeuds.isEmpty)
+    }
+
     func testCoupleIsAdjacent() {
         let (f, _, pere, mere, _) = familleTest()
         let r = disposer(f)

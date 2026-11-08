@@ -1,5 +1,5 @@
 import UIKit
-import Vision
+@preconcurrency import Vision
 import UserNotifications
 import ArbreCore
 
