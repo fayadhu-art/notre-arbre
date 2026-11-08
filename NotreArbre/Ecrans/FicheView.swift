@@ -130,9 +130,8 @@ struct FicheView: View {
         l += conj.enumerated().map { i, c in
             (c, detail(c, c.sexe == .femme ? (conj.count > 1 ? "Sa \(rangs[safe: i] ?? "")épouse" : "Son épouse") : "Son mari"))
         }
-        let mesParents = Set(f.parents(de: p.id).map(\.id))
         l += f.freresEtSoeurs(de: p.id).map { x in
-            let demi = mesParents.intersection(f.parents(de: x.id).map(\.id)).count == 1 && (mesParents.count == 2 || f.parents(de: x.id).count == 2)
+            let demi = f.estDemi(p.id, x.id)
             return (x, detail(x, x.sexe == .femme ? (demi ? "Sa demi-sœur" : "Sa sœur") : (demi ? "Son demi-frère" : "Son frère")))
         }
         l += f.enfants(de: p.id).map { e in

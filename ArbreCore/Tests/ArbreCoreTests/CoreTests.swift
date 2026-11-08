@@ -393,3 +393,31 @@ final class TraitsTests: XCTestCase {
         XCTAssertTrue(descendants.allSatisfy { $0.de.1 >= m.y + 85 }, "aucun trait ne traverse le prénom et le nom")
     }
 }
+
+final class AllianceTests: XCTestCase {
+    func testDifferentLastNameMeansHalfSibling() {
+        var (f, moi, _, _, _) = familleTest()
+        f.personnes[f.personnes.firstIndex { $0.id == moi.id }!].nom = "Ahamada"
+        let fayna = Personne(prenom: "Fayna", nom: "Palmeya", sexe: .femme)
+        f = ajouterProche(fayna, a: moi.id, lien: .fratrie, famille: f)
+        XCTAssertEqual(f.parente(de: fayna.id), "Demi-sœur")
+        let ben = Personne(prenom: "Ben Anli", nom: "AHAMADA", sexe: .homme)
+        f = ajouterProche(ben, a: moi.id, lien: .fratrie, famille: f)
+        XCTAssertEqual(f.parente(de: ben.id), "Frère")
+    }
+
+    func testMarriedInPeopleAreNotFamily() {
+        var (f, moi, pere, _, gm) = familleTest()
+        let oncle = Personne(prenom: "Abdou", sexe: .homme)
+        f = ajouterProche(oncle, a: pere.id, lien: .fratrie, famille: f)
+        let tante = Personne(prenom: "Mouna", sexe: .femme)
+        f = ajouterProche(tante, a: oncle.id, lien: .conjoint, famille: f)
+        XCTAssertEqual(f.parente(de: tante.id), "Tante par alliance")
+        XCTAssertFalse(f.estDeLaFamille(tante.id))
+        let epouse = Personne(prenom: "Nadia", sexe: .femme)
+        f = ajouterProche(epouse, a: moi.id, lien: .conjoint, famille: f)
+        XCTAssertFalse(f.estDeLaFamille(epouse.id))
+        XCTAssertTrue(f.estDeLaFamille(oncle.id))
+        XCTAssertTrue(f.estDeLaFamille(gm.id))
+    }
+}

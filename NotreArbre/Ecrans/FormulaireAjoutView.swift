@@ -26,6 +26,7 @@ struct FormulaireAjoutView: View {
                         .focused($champPrenom)
                     TextField("Nom", text: $nom)
                         .textContentType(.familyName)
+                        .onChange(of: nom) { proposerParentsSelonNom() }
                     if ajout.lien != .pere && ajout.lien != .mere {
                         Picker("Sexe", selection: $sexe) {
                             Text("Homme").tag(Sexe.homme)
@@ -96,6 +97,15 @@ struct FormulaireAjoutView: View {
         default:
             return []
         }
+    }
+
+    /// Frère ou sœur avec un autre nom que le père : on propose « Même mère seulement ».
+    private func proposerParentsSelonNom() {
+        guard ajout.lien == .fratrie, !optionsParents.isEmpty,
+              let pere = model.famille.pere(de: ajout.pour) else { return }
+        let a = nom.trimmingCharacters(in: .whitespaces).lowercased(), b = pere.nom.lowercased()
+        guard !a.isEmpty, !b.isEmpty else { return }
+        choixParents = a == b ? "deux" : "mere"
     }
 
     private func titre(_ sujet: Personne?) -> String {

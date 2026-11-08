@@ -175,9 +175,7 @@ public struct Famille: Codable, Equatable, Sendable {
         case (3, 0): return g("Arrière-grand-père", "Arrière-grand-mère")
         case (_, 0): return "Ancêtre"
         case (1, 1):
-            let mesParents = Set(parents(de: depuis).map(\.id)), sesParents = Set(parents(de: cible).map(\.id))
-            let demi = mesParents.intersection(sesParents).count == 1 && (mesParents.count == 2 || sesParents.count == 2)
-            return demi ? g("Demi-frère", "Demi-sœur") : g("Frère", "Sœur")
+            return estDemi(depuis, cible) ? g("Demi-frère", "Demi-sœur") : g("Frère", "Sœur")
         case (2, 1): return g("Oncle", "Tante")
         case (3, 1): return g("Grand-oncle", "Grand-tante")
         case (1, 2): return g("Neveu", "Nièce")
@@ -185,6 +183,22 @@ public struct Famille: Codable, Equatable, Sendable {
         case (2, 2): return g("Cousin", "Cousine")
         default: return g("Cousin éloigné", "Cousine éloignée")
         }
+    }
+
+    /// Demi-frère ou demi-sœur : un seul parent en commun, ou un nom de famille différent.
+    public func estDemi(_ a: UUID, _ b: UUID) -> Bool {
+        let pa = Set(parents(de: a).map(\.id)), pb = Set(parents(de: b).map(\.id))
+        if pa.intersection(pb).count == 1 && (pa.count == 2 || pb.count == 2) { return true }
+        guard let x = personne(a), let y = personne(b) else { return false }
+        let na = plier(x.nom), nb = plier(y.nom)
+        return !na.isEmpty && !nb.isEmpty && na != nb
+    }
+
+    /// Vrai pour les personnes de la famille par le sang (ancêtres, descendants, frères, oncles, cousins…).
+    /// Faux pour celles entrées par mariage : on ne remonte pas leur propre famille.
+    public func estDeLaFamille(_ id: UUID) -> Bool {
+        guard let moiID else { return true }
+        return parenteDeSang(depuis: moiID, cible: id) != nil
     }
 
     /// Parenté avec l'utilisateur, affichée sous le nom : « Papa », « Grand-mère paternelle », « Oncle », « Belle-mère »…
@@ -201,8 +215,8 @@ public struct Famille: Codable, Equatable, Sendable {
             case "Papa", "Maman": return g("Beau-père", "Belle-mère")
             case "Frère", "Sœur", "Demi-frère", "Demi-sœur": return g("Beau-frère", "Belle-sœur")
             case "Fils", "Fille": return g("Gendre", "Belle-fille")
-            case "Oncle", "Tante": return g("Oncle", "Tante")
-            case _ where l.hasPrefix("Grand-père") || l.hasPrefix("Grand-mère"): return g("Grand-père", "Grand-mère")
+            case "Oncle", "Tante": return g("Oncle par alliance", "Tante par alliance")
+            case _ where l.hasPrefix("Grand-père") || l.hasPrefix("Grand-mère"): return g("Grand-père par alliance", "Grand-mère par alliance")
             default: return "Par alliance"
             }
         }

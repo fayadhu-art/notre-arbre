@@ -74,6 +74,8 @@ final class AppModel {
 
     /// Liens qu'on peut ajouter à une personne (père et mère seulement s'ils manquent, frère ou sœur si on connaît un parent).
     func liensPossibles(_ id: UUID) -> [LienAjout] {
+        // Une personne entrée par mariage : on n'ajoute que ses enfants avec la famille, pas sa propre famille.
+        guard famille.estDeLaFamille(id) else { return [.enfant] }
         var l: [LienAjout] = []
         if famille.parents(de: id).count < 2 {
             if famille.pere(de: id) == nil { l.append(.pere) }

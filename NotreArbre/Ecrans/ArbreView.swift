@@ -39,9 +39,11 @@ struct ArbreDessin: View {
                     .position(x: n.x, y: n.y + 58)
                 if let id = n.id {
                     let b = famille.branche(de: id)
+                    let alliance = !famille.estDeLaFamille(id)
                     Text(famille.parente(de: id))
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(b == .pere ? Color.corailTexte : (b == .mere ? Color.violetTexte : Color.turquoise))
+                        .font(.system(size: 11, weight: alliance ? .medium : .semibold))
+                        .italic(alliance)
+                        .foregroundStyle(alliance ? Color.gris : (b == .pere ? Color.corailTexte : (b == .mere ? Color.violetTexte : Color.turquoise)))
                         .lineLimit(1).minimumScaleFactor(0.7).frame(width: Self.largeur)
                         .position(x: n.x, y: n.y + 75)
                 }
@@ -121,6 +123,7 @@ struct ArbreView: View {
                 HStack(spacing: 8) {
                     puce { HStack(spacing: 6) { Circle().stroke(Color.turquoise, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2])).frame(width: 12, height: 12); Text("à compléter") } }
                     puce { HStack(spacing: 6) { Circle().fill(Color.corail).frame(width: 12, height: 12); Text("côté père"); Circle().fill(Color.violet).frame(width: 12, height: 12).padding(.leading, 6); Text("côté mère") } }
+                    puce { Text("gris italique = par alliance").italic() }
                 }
             }
         }
