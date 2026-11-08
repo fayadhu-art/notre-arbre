@@ -179,7 +179,9 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
         let midY = py + ecartGeneration * 0.62
         let pointille = fam.parents.contains { elements[$0]!.id == nil }
         let xs = fam.enfants.map { pos($0).0 }
-        traits.append(Trait(de: (mx, py), a: (mx, midY), pointille: pointille))
+        // Un seul parent : le trait part sous son nom au lieu de le traverser.
+        let depart = fam.parents.count == 1 ? py + ecartGeneration * 0.58 : py
+        traits.append(Trait(de: (mx, depart), a: (mx, midY), pointille: pointille))
         let gauche = min(mx, xs.min()!), droite = max(mx, xs.max()!)
         if droite > gauche { traits.append(Trait(de: (gauche, midY), a: (droite, midY), pointille: pointille)) }
         for c in fam.enfants {

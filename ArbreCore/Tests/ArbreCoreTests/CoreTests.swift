@@ -379,3 +379,16 @@ final class AffichageTests: XCTestCase {
         XCTAssertEqual(Personne(prenom: "Mariama").initiales, "MA")
     }
 }
+
+final class TraitsTests: XCTestCase {
+    func testLineFromSingleParentStartsBelowHisName() {
+        let (f0, moi, _, _, _) = familleTest()
+        let enfant = Personne(prenom: "Insya", nom: "Ahamada", sexe: .femme)
+        let f = ajouterProche(enfant, a: moi.id, lien: .enfant, famille: f0)
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 150)
+        let m = r.noeuds.first { $0.id == moi.id }!
+        let descendants = r.traits.filter { $0.de.0 == m.x && $0.a.1 > $0.de.1 && $0.de.1 >= m.y && $0.de.1 < m.y + 150 }
+        XCTAssertFalse(descendants.isEmpty)
+        XCTAssertTrue(descendants.allSatisfy { $0.de.1 >= m.y + 85 }, "aucun trait ne traverse le prénom et le nom")
+    }
+}
