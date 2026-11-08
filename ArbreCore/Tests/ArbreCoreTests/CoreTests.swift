@@ -188,7 +188,7 @@ final class DispositionTests: XCTestCase {
         let p = r.noeuds.first { $0.id == pere.id }!, m = r.noeuds.first { $0.id == mere.id }!
         XCTAssertEqual(p.y, m.y)
         XCTAssertLessThan(abs(p.x - m.x), 84 * 1.2)
-        XCTAssertLessThan(p.x, m.x, "le père est à gauche")
+        XCTAssertGreaterThan(p.x, m.x, "le père est à droite, la mère à gauche")
     }
 }
 
@@ -583,5 +583,18 @@ final class CouleurCoupleTests: XCTestCase {
         let couple = r.traits.first { $0.de.1 == m.y && $0.a.1 == m.y && Set([$0.de.0, $0.a.0]) == Set([m.x, e.x]) }!.groupe
         let versInsya = r.traits.first { $0.de.0 == i.x && $0.a.1 == i.y }!.groupe
         XCTAssertEqual(couple, versInsya, "le trait du couple et ceux de ses enfants ont la même couleur")
+    }
+}
+
+final class CotesTests: XCTestCase {
+    func testFatherSideIsOnTheRightMotherSideOnTheLeft() {
+        var (f, moi, pere, mere, gm) = familleTest()
+        let gmMat = Personne(prenom: "Mariama", sexe: .femme)
+        f = ajouterProche(gmMat, a: mere.id, lien: .mere, famille: f)
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 150)
+        func x(_ p: Personne) -> Double { r.noeuds.first { $0.id == p.id }!.x }
+        XCTAssertGreaterThan(x(pere), x(mere))
+        XCTAssertGreaterThan(x(gm), x(gmMat), "la grand-mère paternelle est à droite de la grand-mère maternelle")
+        _ = moi
     }
 }

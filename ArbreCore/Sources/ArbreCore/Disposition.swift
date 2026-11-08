@@ -86,12 +86,12 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
     for cle in ordre { if let ps = parentsDe[cle], ps.count == 2 { lier(ps[0], ps[1]) } }
     let rang = Dictionary(uniqueKeysWithValues: ordre.enumerated().map { ($1, $0) })
 
-    // Un couple : homme à gauche. Plusieurs épouses : 1re épouse, mari, 2e épouse, 3e épouse…
+    // Un couple : femme à gauche, homme à droite (le côté du père se retrouve à droite de l'arbre). Plusieurs épouses : 1re épouse, mari, 2e épouse, 3e épouse…
     func arranger(_ groupe: [String]) -> [String] {
         if groupe.count == 1 { return groupe }
         if groupe.count == 2 {
             let (a, b) = (groupe[0], groupe[1])
-            return estHomme(b) && !estHomme(a) ? [b, a] : [a, b]
+            return estHomme(a) && !estHomme(b) ? [b, a] : [a, b]
         }
         let nb = { (c: String) in conjointsDe[c]?.count ?? 0 }
         let centre = groupe.reduce(groupe[0]) { nb($1) > nb($0) ? $1 : $0 }

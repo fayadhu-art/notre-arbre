@@ -129,7 +129,7 @@ struct ArbreView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     puce { HStack(spacing: 6) { Circle().stroke(Color.turquoise, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2])).frame(width: 12, height: 12); Text("à compléter") } }
-                    puce { HStack(spacing: 6) { Circle().fill(Color.corail).frame(width: 12, height: 12); Text("côté père"); Circle().fill(Color.violet).frame(width: 12, height: 12).padding(.leading, 6); Text("côté mère") } }
+                    puce { HStack(spacing: 6) { Circle().fill(Color.violet).frame(width: 12, height: 12); Text("côté mère"); Circle().fill(Color.corail).frame(width: 12, height: 12).padding(.leading, 6); Text("côté père") } }
                     puce { Text("gris italique = par alliance").italic() }
                 }
             }
