@@ -371,7 +371,8 @@ final class AjoutTests: XCTestCase {
 final class AffichageTests: XCTestCase {
     func testBirthDateIsNeverAsked() {
         let (f, _, _, _, _) = familleTest()
-        XCTAssertFalse(manques(f, enAttente: []).contains { $0.sujet == .dateNaissance })
+        XCTAssertFalse(manques(f, enAttente: []).contains { $0.sujet == .dateNaissance || $0.sujet == .lieuNaissance },
+                       "ni la date ni le village de naissance ne sont demandés")
     }
 
     func testInitialsUseFirstAndLastName() {

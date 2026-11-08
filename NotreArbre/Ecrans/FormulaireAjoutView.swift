@@ -35,6 +35,8 @@ struct FormulaireAjoutView: View {
                     }
                 } header: {
                     Text(titre(sujet))
+                } footer: {
+                    Text("Seuls le prénom et le nom sont obligatoires.")
                 }
                 if !optionsParents.isEmpty {
                     Section {
@@ -46,11 +48,6 @@ struct FormulaireAjoutView: View {
                     } header: {
                         Text(ajout.lien == .enfant ? "Qui est l'autre parent ?" : "Même père et même mère ?")
                     }
-                }
-                Section {
-                    TextField("Village de naissance (facultatif)", text: $lieu)
-                } footer: {
-                    Text("Le prénom et le nom sont obligatoires. Le reste peut attendre.")
                 }
                 Section("Notes") {
                     TextField("Ce que tu sais d'autre", text: $notes, axis: .vertical).lineLimit(2...6)
