@@ -127,7 +127,8 @@ public func extraitsSimples(reponse: String, manque: Manque?) -> (extraits: [Ext
     let vides: Set<String> = ["mon", "ma", "mes", "son", "sa", "ses", "pere", "mere", "s'appelle", "s'appellent", "s'appelait",
                               "il", "elle", "c'est", "est", "sont", "papa", "maman", "frere", "soeur", "sœur", "freres", "soeurs",
                               "fils", "fille", "enfants", "j'ai", "un", "une", "deux", "trois", "qui", "se", "nomme", "appelle",
-                              "et", "le", "la", "les", "de", "du", "ne", "en", "vers", "environ"]
+                              "et", "le", "la", "les", "de", "du", "ne", "en", "vers", "environ",
+                              "non", "oui", "aucun", "aucune", "pas", "personne", "je", "n'ai"]
     let morceaux = reponse
         .replacingOccurrences(of: " et ", with: ",")
         .split(whereSeparator: { ",;.\n".contains($0) })

@@ -1,0 +1,193 @@
+import SwiftUI
+import ArbreCore
+
+/// Le dessin de l'arbre, réutilisé à l'écran et pour l'affiche PDF.
+struct ArbreDessin: View {
+    let famille: Famille
+    var pourImpression = false
+    var surPersonne: ((UUID) -> Void)? = nil
+    var surATrouver: ((Noeud) -> Void)? = nil
+
+    var body: some View {
+        let d = disposer(famille)
+        ZStack(alignment: .topLeading) {
+            Path { p in
+                for t in d.traits where !t.pointille {
+                    p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
+                }
+            }
+            .stroke(Color.turquoise.opacity(pourImpression ? 0.6 : 0.35), lineWidth: 2)
+            Path { p in
+                for t in d.traits where t.pointille {
+                    p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
+                }
+            }
+            .stroke(Color.turquoise.opacity(0.45), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
+
+            ForEach(d.noeuds, id: \.cle) { n in
+                cercle(n).position(x: n.x, y: n.y)
+                Text(n.libelle)
+                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.encre)
+                    .lineLimit(1).frame(width: 84)
+                    .position(x: n.x, y: n.y + 40)
+                Text(sousTitre(n))
+                    .font(.system(size: 12)).foregroundStyle(Color.gris)
+                    .lineLimit(1).minimumScaleFactor(0.8).frame(width: 84)
+                    .position(x: n.x, y: n.y + 56)
+            }
+        }
+        .frame(width: d.taille.0, height: d.taille.1, alignment: .topLeading)
+    }
+
+    private func sousTitre(_ n: Noeud) -> String {
+        if let id = n.id, let p = famille.personne(id) {
+            if id == famille.moiID { return "toi" }
+            return p.naissance.precision == .inconnue ? "date inconnue" : p.naissance.libelle
+        }
+        guard let pour = n.pour, let enfant = famille.personne(pour) else { return "" }
+        let role = n.role == .femme ? "mère" : "père"
+        let voyelle = "aeiouyhAEIOUYHÉé".contains(enfant.prenom.first ?? "x")
+        return "\(role) \(voyelle ? "d'" : "de ")\(enfant.prenom)"
+    }
+
+    @ViewBuilder
+    private func cercle(_ n: Noeud) -> some View {
+        if let id = n.id, let p = famille.personne(id) {
+            let b = famille.branche(de: id)
+            let contenu = Text(p.initiales)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(b.pleine ? .white : Color.turquoise)
+                .frame(width: 52, height: 52)
+            Group {
+                if pourImpression {
+                    contenu.background(Circle().fill(b.pleine ? b.couleur : Color.turquoiseClair))
+                        .overlay(Circle().stroke(b.pleine ? .clear : Color.turquoise.opacity(0.5), lineWidth: 1.5))
+                } else if b.pleine {
+                    contenu.glassEffect(.regular.tint(b.couleur.opacity(0.88)).interactive(), in: .circle)
+                } else {
+                    contenu.glassEffect(.regular.interactive(), in: .circle)
+                }
+            }
+            .onTapGesture { surPersonne?(id) }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(p.prenom), \(sousTitre(n))")
+            .accessibilityAddTraits(.isButton)
+        } else {
+            Text("?")
+                .font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.turquoise)
+                .frame(width: 52, height: 52)
+                .background(Circle().fill(Color.white.opacity(pourImpression ? 1 : 0.35)))
+                .overlay(Circle().stroke(Color.turquoise.opacity(0.55), style: StrokeStyle(lineWidth: 2, dash: [4, 3])))
+                .onTapGesture { surATrouver?(n) }
+                .accessibilityLabel("À trouver, \(sousTitre(n))")
+                .accessibilityAddTraits(.isButton)
+        }
+    }
+}
+
+struct ArbreView: View {
+    @Environment(AppModel.self) private var model
+    @State private var zoom: CGFloat = 1
+    @State private var zoomDepart: CGFloat = 1
+    @State private var fiche: UUID?
+    @State private var affiche = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("L'arbre").font(.titreEcran()).foregroundStyle(Color.encre)
+                    Text("\(model.famille.personnes.count) personnes · \(model.famille.nombreGenerations) générations")
+                        .font(.system(size: 15)).foregroundStyle(Color.gris)
+                }
+                Spacer()
+                Button { affiche = true } label: {
+                    Image(systemName: "printer").font(.system(size: 18, weight: .medium)).foregroundStyle(Color.encre)
+                        .frame(width: 44, height: 44)
+                }
+                .glassEffect(.regular.interactive(), in: .circle)
+                .accessibilityLabel("Imprimer l'arbre en grand format")
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    puce { Text("« vers 1958 » = année approximative") }
+                    puce { HStack(spacing: 6) { Circle().stroke(Color.turquoise, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2])).frame(width: 12, height: 12); Text("à compléter") } }
+                    puce { HStack(spacing: 6) { Circle().fill(Color.corail).frame(width: 12, height: 12); Text("côté père"); Circle().fill(Color.violet).frame(width: 12, height: 12).padding(.leading, 6); Text("côté mère") } }
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .overlay(alignment: .top) {
+            ScrollView([.horizontal, .vertical], showsIndicators: false) {
+                let d = disposer(model.famille)
+                ArbreDessin(famille: model.famille,
+                            surPersonne: { fiche = $0 },
+                            surATrouver: { n in
+                                guard let pour = n.pour else { return }
+                                model.ouvrirEntretien(depart: Manque(personne: pour, sujet: pour == model.famille.moiID ? .parents : .grandsParents))
+                            })
+                    .scaleEffect(zoom, anchor: .topLeading)
+                    .frame(width: d.taille.0 * zoom, height: d.taille.1 * zoom, alignment: .topLeading)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 120)
+            }
+            .defaultScrollAnchor(.top)
+            .padding(.top, 140)
+            .simultaneousGesture(
+                MagnifyGesture()
+                    .onChanged { zoom = min(2.5, max(0.4, zoomDepart * $0.magnification)) }
+                    .onEnded { _ in zoomDepart = zoom }
+            )
+        }
+        .background(FondColore())
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(item: $fiche) { FicheView(id: $0) }
+        .sheet(isPresented: $affiche) { AfficheView().environment(model).presentationDetents([.medium]) }
+    }
+
+    private func puce<C: View>(@ViewBuilder _ contenu: () -> C) -> some View {
+        contenu()
+            .font(.system(size: 12)).foregroundStyle(Color.encre)
+            .padding(.horizontal, 12).frame(height: 30)
+            .glassEffect(.regular, in: .capsule)
+    }
+}
+
+struct AfficheView: View {
+    @Environment(AppModel.self) private var model
+    @State private var format: FormatAffiche = .a1
+    @State private var fichier: URL?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Imprimer l'arbre").font(.system(size: 24, weight: .bold))
+            Text("Un PDF net à toutes les tailles, avec « Famille BAZAMA » en haut. Envoie-le à un imprimeur.")
+                .font(.system(size: 15)).foregroundStyle(Color.gris)
+            Picker("Format", selection: $format) {
+                ForEach(FormatAffiche.allCases) { Text($0.titre).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: format) { fichier = nil }
+            Text(format.description).font(.system(size: 13)).foregroundStyle(Color.gris)
+            Spacer()
+            if let fichier {
+                ShareLink(item: fichier) {
+                    Label("Partager le PDF", systemImage: "square.and.arrow.up")
+                        .font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).frame(height: 56)
+                }
+                .verreTeinte(rayon: 28)
+            } else {
+                Button { fichier = pdfAffiche(famille: model.famille, format: format) } label: {
+                    Label("Créer le PDF \(format.titre)", systemImage: "doc.richtext")
+                        .font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).frame(height: 56)
+                }
+                .verreTeinte(rayon: 28)
+            }
+        }
+        .padding(24)
+    }
+}
