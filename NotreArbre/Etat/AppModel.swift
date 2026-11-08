@@ -85,9 +85,9 @@ final class AppModel {
     }
 
     /// Ajoute une personne saisie dans le formulaire. Ouvre l'écran « Objectif atteint » au 5e ajout du jour.
-    func ajouter(_ p: Personne, a sujet: UUID, lien: LienAjout) {
+    func ajouter(_ p: Personne, a sujet: UUID, lien: LienAjout, parentsChoisis: [UUID]? = nil) {
         let avant = ajoutsAujourdhui.count
-        famille = ajouterProche(p, a: sujet, lien: lien, famille: famille)
+        famille = ajouterProche(p, a: sujet, lien: lien, famille: famille, parentsChoisis: parentsChoisis)
         enregistrer()
         if avant < Objectif.cible && ajoutsAujourdhui.count >= Objectif.cible {
             // Laisse le formulaire se fermer avant d'afficher l'écran de victoire.
@@ -128,7 +128,7 @@ final class AppModel {
     func resume(_ id: UUID) -> String {
         guard let p = famille.personne(id) else { return "" }
         let lieu = (p.lieuNaissance ?? "").isEmpty ? "" : " · \(p.lieuNaissance!)"
-        return famille.lienAvecMoi(id).majusculeInitiale + lieu
+        return famille.parente(de: id) + lieu
     }
 
     func suggestion(_ m: Manque) -> String {
@@ -152,6 +152,20 @@ struct Ajout: Identifiable, Equatable {
 }
 
 extension LienAjout {
+    /// Libellé du menu selon la personne : « Ajouter une deuxième épouse » pour un homme déjà marié…
+    func action(pour p: Personne?, famille: Famille) -> String {
+        guard self == .conjoint, let p else { return action }
+        let n = famille.conjoints(de: p.id).count
+        switch p.sexe {
+        case .homme:
+            return ["Ajouter son épouse", "Ajouter une deuxième épouse", "Ajouter une troisième épouse"][safe: n] ?? "Ajouter une autre épouse"
+        case .femme:
+            return n == 0 ? "Ajouter son mari" : "Ajouter un autre mari"
+        case .inconnu:
+            return action
+        }
+    }
+
     var action: String {
         switch self {
         case .pere: "Ajouter son père"
@@ -169,4 +183,8 @@ extension LienAjout {
         case .conjoint: "heart.circle"
         }
     }
+}
+
+extension Array {
+    subscript(safe i: Int) -> Element? { indices.contains(i) ? self[i] : nil }
 }

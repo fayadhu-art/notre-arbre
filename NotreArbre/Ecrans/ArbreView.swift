@@ -4,13 +4,14 @@ import ArbreCore
 /// Le dessin de l'arbre, réutilisé à l'écran et pour l'affiche PDF.
 struct ArbreDessin: View {
     static let largeur: Double = 104
+    static let ecart: Double = 150
     let famille: Famille
     var pourImpression = false
     var surPersonne: ((UUID) -> Void)? = nil
     var surATrouver: ((Noeud) -> Void)? = nil
 
     var body: some View {
-        let d = disposer(famille, largeurNoeud: Self.largeur)
+        let d = disposer(famille, largeurNoeud: Self.largeur, ecartGeneration: Self.ecart)
         ZStack(alignment: .topLeading) {
             Path { p in
                 for t in d.traits where !t.pointille {
@@ -36,6 +37,14 @@ struct ArbreDessin: View {
                     .foregroundStyle(n.id == nil ? Color.gris : Color.encre.opacity(0.75))
                     .lineLimit(1).minimumScaleFactor(0.7).frame(width: Self.largeur)
                     .position(x: n.x, y: n.y + 58)
+                if let id = n.id {
+                    let b = famille.branche(de: id)
+                    Text(famille.parente(de: id))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(b == .pere ? Color.corailTexte : (b == .mere ? Color.violetTexte : Color.turquoise))
+                        .lineLimit(1).minimumScaleFactor(0.7).frame(width: Self.largeur)
+                        .position(x: n.x, y: n.y + 75)
+                }
             }
         }
         .frame(width: d.taille.0, height: d.taille.1, alignment: .topLeading)
@@ -69,7 +78,7 @@ struct ArbreDessin: View {
             }
             .onTapGesture { surPersonne?(id) }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(p.nomComplet)
+            .accessibilityLabel("\(p.nomComplet), \(famille.parente(de: id))")
             .accessibilityAddTraits(.isButton)
         } else {
             Text("?")
@@ -120,7 +129,7 @@ struct ArbreView: View {
         .frame(maxHeight: .infinity, alignment: .top)
         .overlay(alignment: .top) {
             ScrollView([.horizontal, .vertical], showsIndicators: false) {
-                let d = disposer(model.famille, largeurNoeud: ArbreDessin.largeur)
+                let d = disposer(model.famille, largeurNoeud: ArbreDessin.largeur, ecartGeneration: ArbreDessin.ecart)
                 ArbreDessin(famille: model.famille,
                             surPersonne: { choix = $0 },
                             surATrouver: { n in

@@ -63,7 +63,8 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
     }
     var enfantsDe: [String: [String]] = [:]
     for (enfant, ps) in parentsDe { for p in ps { enfantsDe[p, default: []].append(enfant) } }
-    for k in enfantsDe.keys { enfantsDe[k]!.sort { ordre.firstIndex(of: $0)! < ordre.firstIndex(of: $1)! } }
+    let rangInitial = Dictionary(uniqueKeysWithValues: ordre.enumerated().map { ($1, $0) })
+    for k in enfantsDe.keys { enfantsDe[k]!.sort { rangInitial[$0]! < rangInitial[$1]! } }
 
     func estHomme(_ c: String) -> Bool {
         let e = elements[c]!
@@ -71,23 +72,42 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
         return f.personne(e.id!)?.sexe == .homme
     }
 
-    // 2. Couples : conjoints déclarés et paires de parents d'un même enfant.
-    var partenaire: [String: String] = [:]
-    func unir(_ a: String, _ b: String) {
-        guard let ea = elements[a], let eb = elements[b], partenaire[a] == nil, partenaire[b] == nil, ea.gen == eb.gen else { return }
-        partenaire[a] = b; partenaire[b] = a
+    // 2. Couples : conjoints déclarés et paires de parents d'un même enfant. Un homme peut avoir plusieurs épouses.
+    var conjointsDe: [String: [String]] = [:]
+    func lier(_ a: String, _ b: String) {
+        guard a != b, let ea = elements[a], let eb = elements[b], ea.gen == eb.gen,
+              !(conjointsDe[a]?.contains(b) ?? false) else { return }
+        conjointsDe[a, default: []].append(b)
+        conjointsDe[b, default: []].append(a)
     }
-    for c in f.couples { unir(c.a.uuidString, c.b.uuidString) }
-    for cle in ordre { if let ps = parentsDe[cle], ps.count == 2 { unir(ps[0], ps[1]) } }
+    for c in f.couples { lier(c.a.uuidString, c.b.uuidString) }
+    for cle in ordre { if let ps = parentsDe[cle], ps.count == 2 { lier(ps[0], ps[1]) } }
+    let rang = Dictionary(uniqueKeysWithValues: ordre.enumerated().map { ($1, $0) })
 
-    // 3. Unités par génération (un couple = une unité, homme à gauche).
+    // Un couple : homme à gauche. Plusieurs épouses : 1re épouse, mari, 2e épouse, 3e épouse…
+    func arranger(_ groupe: [String]) -> [String] {
+        if groupe.count == 1 { return groupe }
+        if groupe.count == 2 {
+            let (a, b) = (groupe[0], groupe[1])
+            return estHomme(b) && !estHomme(a) ? [b, a] : [a, b]
+        }
+        let nb = { (c: String) in conjointsDe[c]?.count ?? 0 }
+        let centre = groupe.reduce(groupe[0]) { nb($1) > nb($0) ? $1 : $0 }
+        let autres = groupe.filter { $0 != centre }
+        return [autres[0], centre] + autres.dropFirst()
+    }
+
+    // 3. Unités par génération : chaque groupe de conjoints forme une unité.
     var unitesParGen: [Int: [[String]]] = [:]
     var place = Set<String>()
     for cle in ordre where !place.contains(cle) {
-        var u = [cle]
-        if let p = partenaire[cle] { u = estHomme(p) && !estHomme(cle) ? [p, cle] : [cle, p] }
-        u.forEach { place.insert($0) }
-        unitesParGen[elements[cle]!.gen, default: []].append(u)
+        var groupe: [String] = []
+        var pile = [cle]
+        while let c = pile.popLast() {
+            if place.insert(c).inserted { groupe.append(c); pile += conjointsDe[c] ?? [] }
+        }
+        groupe.sort { rang[$0]! < rang[$1]! }
+        unitesParGen[elements[cle]!.gen, default: []].append(arranger(groupe))
     }
 
     var x: [String: Double] = [:]
@@ -142,10 +162,10 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
 
     // 5. Traits : couples, puis familles (parents → enfants).
     var traits: [Trait] = []
-    var faits = Set<String>()
-    for (a, b) in partenaire where !faits.contains(a) {
-        faits.insert(a); faits.insert(b)
-        traits.append(Trait(de: pos(a), a: pos(b), pointille: elements[a]!.id == nil || elements[b]!.id == nil))
+    for a in ordre {
+        for b in conjointsDe[a] ?? [] where rang[a]! < rang[b]! {
+            traits.append(Trait(de: pos(a), a: pos(b), pointille: elements[a]!.id == nil || elements[b]!.id == nil))
+        }
     }
     var familles: [String: (parents: [String], enfants: [String])] = [:]
     for cle in ordre { if let ps = parentsDe[cle] {
@@ -156,7 +176,7 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
         let pp = fam.parents.map(pos)
         let mx = pp.map(\.0).reduce(0, +) / Double(pp.count)
         let py = pp[0].1
-        let midY = py + ecartGeneration * 0.55
+        let midY = py + ecartGeneration * 0.62
         let pointille = fam.parents.contains { elements[$0]!.id == nil }
         let xs = fam.enfants.map { pos($0).0 }
         traits.append(Trait(de: (mx, py), a: (mx, midY), pointille: pointille))

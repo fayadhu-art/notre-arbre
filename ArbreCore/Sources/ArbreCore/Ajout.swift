@@ -6,7 +6,9 @@ public enum LienAjout: String, Sendable, CaseIterable {
 }
 
 /// Ajoute une personne saisie à la main et la relie à `sujet`. Renvoie la nouvelle famille.
-public func ajouterProche(_ p: Personne, a sujet: UUID, lien: LienAjout, famille: Famille) -> Famille {
+/// `parentsChoisis` : pour un enfant, l'autre parent (vide = inconnu) ; pour un frère ou une sœur,
+/// les parents en commun (un seul = demi-frère ou demi-sœur). `nil` = choix automatique.
+public func ajouterProche(_ p: Personne, a sujet: UUID, lien: LienAjout, famille: Famille, parentsChoisis: [UUID]? = nil) -> Famille {
     var f = famille
     f.ajouter(p)
     switch lien {
@@ -17,9 +19,9 @@ public func ajouterProche(_ p: Personne, a sujet: UUID, lien: LienAjout, famille
     case .enfant:
         f.lierParent(sujet, enfant: p.id)
         let conj = f.conjoints(de: sujet)
-        if conj.count == 1 { f.lierParent(conj[0].id, enfant: p.id) }
+        for autre in parentsChoisis ?? (conj.count == 1 ? [conj[0].id] : []) { f.lierParent(autre, enfant: p.id) }
     case .fratrie:
-        for parent in f.parents(de: sujet) { f.lierParent(parent.id, enfant: p.id) }
+        for parent in parentsChoisis ?? f.parents(de: sujet).map(\.id) { f.lierParent(parent, enfant: p.id) }
     case .conjoint:
         f.lierCouple(sujet, p.id)
     }

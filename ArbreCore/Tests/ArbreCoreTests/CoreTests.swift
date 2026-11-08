@@ -89,10 +89,38 @@ final class FamilleTests: XCTestCase {
         XCTAssertNil(f.trouver(prenom: "Inconnu"))
     }
 
-    func testLienAvecMoi() {
-        let (f, _, pere, _, gm) = familleTest()
-        XCTAssertEqual(f.lienAvecMoi(pere.id), "ton père")
-        XCTAssertEqual(f.lienAvecMoi(gm.id), "ta grand-mère paternelle")
+    func testParente() {
+        var (f, moi, pere, mere, gm) = familleTest()
+        XCTAssertEqual(f.parente(de: moi.id), "Moi")
+        XCTAssertEqual(f.parente(de: pere.id), "Papa")
+        XCTAssertEqual(f.parente(de: mere.id), "Maman")
+        XCTAssertEqual(f.parente(de: gm.id), "Grand-mère paternelle")
+        let oncle = Personne(prenom: "Abdou", sexe: .homme)
+        f = ajouterProche(oncle, a: pere.id, lien: .fratrie, famille: f)
+        XCTAssertEqual(f.parente(de: oncle.id), "Oncle")
+        let cousine = Personne(prenom: "Anfiati", sexe: .femme)
+        f = ajouterProche(cousine, a: oncle.id, lien: .enfant, famille: f)
+        XCTAssertEqual(f.parente(de: cousine.id), "Cousine")
+        let soeur = Personne(prenom: "Anli", sexe: .femme)
+        f = ajouterProche(soeur, a: moi.id, lien: .fratrie, famille: f)
+        let neveu = Personne(prenom: "Ali", sexe: .homme)
+        f = ajouterProche(neveu, a: soeur.id, lien: .enfant, famille: f)
+        XCTAssertEqual(f.parente(de: neveu.id), "Neveu")
+    }
+
+    func testSecondWifeHalfSisterAndStepMother() {
+        var (f, moi, pere, _, _) = familleTest()
+        let epouse2 = Personne(prenom: "Halima", sexe: .femme)
+        f = ajouterProche(epouse2, a: pere.id, lien: .conjoint, famille: f)
+        XCTAssertEqual(f.conjoints(de: pere.id).count, 2)
+        XCTAssertEqual(f.parente(de: epouse2.id), "Belle-mère")
+        let demi = Personne(prenom: "Faouzia", sexe: .femme)
+        f = ajouterProche(demi, a: pere.id, lien: .enfant, famille: f, parentsChoisis: [epouse2.id])
+        XCTAssertEqual(Set(f.parents(de: demi.id).map(\.id)), [pere.id, epouse2.id])
+        XCTAssertEqual(f.parente(de: demi.id), "Demi-sœur")
+        let demiFrere = Personne(prenom: "Said", sexe: .homme)
+        f = ajouterProche(demiFrere, a: moi.id, lien: .fratrie, famille: f, parentsChoisis: [pere.id])
+        XCTAssertEqual(f.parente(de: demiFrere.id), "Demi-frère")
     }
 }
 
@@ -126,6 +154,32 @@ final class DispositionTests: XCTestCase {
         var (f, moi, _, _, _) = familleTest()
         f.couples.append(Couple(a: moi.id, b: UUID()))
         XCTAssertFalse(disposer(f).noeuds.isEmpty)
+    }
+
+    func testThreeWivesAroundHusbandWithChildrenUnderEachMother() {
+        let h = Personne(prenom: "Ahamada", sexe: .homme)
+        var f = Famille(moiID: h.id)
+        f.ajouter(h)
+        var epouses: [Personne] = []
+        var enfants: [Personne] = []
+        for nom in ["Zaharia", "Halima", "Echati"] {
+            let e = Personne(prenom: nom, sexe: .femme)
+            f = ajouterProche(e, a: h.id, lien: .conjoint, famille: f)
+            let enfant = Personne(prenom: "Enfant de \(nom)")
+            f = ajouterProche(enfant, a: h.id, lien: .enfant, famille: f, parentsChoisis: [e.id])
+            epouses.append(e); enfants.append(enfant)
+        }
+        let r = disposer(f)
+        func x(_ p: Personne) -> Double { r.noeuds.first { $0.id == p.id }!.x }
+        XCTAssertLessThan(x(epouses[0]), x(h))
+        XCTAssertLessThan(x(h), x(epouses[1]))
+        XCTAssertLessThan(x(epouses[1]), x(epouses[2]))
+        XCTAssertLessThan(x(enfants[0]), x(enfants[1]))
+        XCTAssertLessThan(x(enfants[1]), x(enfants[2]))
+        for (_, ligne) in Dictionary(grouping: r.noeuds, by: { $0.y }) {
+            let xs = ligne.map(\.x).sorted()
+            for (a, b) in zip(xs, xs.dropFirst()) { XCTAssertGreaterThanOrEqual(b - a, 84) }
+        }
     }
 
     func testCoupleIsAdjacent() {

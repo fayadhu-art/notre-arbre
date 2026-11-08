@@ -136,29 +136,86 @@ public struct Famille: Codable, Equatable, Sendable {
         }
     }
 
-    /// Lien avec l'utilisateur, en français : « ton père », « ta grand-mère paternelle »…
-    public func lienAvecMoi(_ id: UUID) -> String {
+    /// Profondeur de chaque ancêtre (la personne elle-même = 0).
+    func profondeurs(_ id: UUID) -> [UUID: Int] {
+        var p: [UUID: Int] = [id: 0]
+        var file = [id]
+        while !file.isEmpty {
+            let x = file.removeFirst()
+            for parent in parents(de: x) where p[parent.id] == nil {
+                p[parent.id] = p[x]! + 1
+                file.append(parent.id)
+            }
+        }
+        return p
+    }
+
+    /// Parenté de sang de `cible` vue depuis `depuis` : « Papa », « Oncle », « Demi-sœur »… ou nil.
+    func parenteDeSang(depuis: UUID, cible: UUID) -> String? {
+        guard let x = personne(cible) else { return nil }
+        let fem = x.sexe == .femme
+        func g(_ m: String, _ f: String) -> String { fem ? f : m }
+        let a = profondeurs(depuis), b = profondeurs(cible)
+        var meilleur: (Int, Int)?
+        for (k, da) in a {
+            if let db = b[k], meilleur == nil || da + db < meilleur!.0 + meilleur!.1 { meilleur = (da, db) }
+        }
+        guard let (u, d) = meilleur else { return nil }
+        switch (u, d) {
+        case (0, 0): return "Moi"
+        case (0, 1): return g("Fils", "Fille")
+        case (0, 2): return g("Petit-fils", "Petite-fille")
+        case (0, _): return g("Arrière-petit-fils", "Arrière-petite-fille")
+        case (1, 0): return g("Papa", "Maman")
+        case (2, 0):
+            let base = g("Grand-père", "Grand-mère")
+            if let p = pere(de: depuis), parents(de: p.id).contains(where: { $0.id == cible }) { return base + g(" paternel", " paternelle") }
+            if let m = mere(de: depuis), parents(de: m.id).contains(where: { $0.id == cible }) { return base + g(" maternel", " maternelle") }
+            return base
+        case (3, 0): return g("Arrière-grand-père", "Arrière-grand-mère")
+        case (_, 0): return "Ancêtre"
+        case (1, 1):
+            let mesParents = Set(parents(de: depuis).map(\.id)), sesParents = Set(parents(de: cible).map(\.id))
+            let demi = mesParents.intersection(sesParents).count == 1 && (mesParents.count == 2 || sesParents.count == 2)
+            return demi ? g("Demi-frère", "Demi-sœur") : g("Frère", "Sœur")
+        case (2, 1): return g("Oncle", "Tante")
+        case (3, 1): return g("Grand-oncle", "Grand-tante")
+        case (1, 2): return g("Neveu", "Nièce")
+        case (1, 3): return g("Petit-neveu", "Petite-nièce")
+        case (2, 2): return g("Cousin", "Cousine")
+        default: return g("Cousin éloigné", "Cousine éloignée")
+        }
+    }
+
+    /// Parenté avec l'utilisateur, affichée sous le nom : « Papa », « Grand-mère paternelle », « Oncle », « Belle-mère »…
+    public func parente(de id: UUID) -> String {
         guard let moiID, let x = personne(id) else { return "" }
-        let f = x.sexe == .femme
-        if id == moiID { return "toi" }
-        let mesParents = parents(de: moiID).map(\.id)
-        if mesParents.contains(id) { return f ? "ta mère" : "ton père" }
-        if conjoints(de: moiID).contains(where: { $0.id == id }) { return f ? "ton épouse" : "ton époux" }
-        if enfants(de: moiID).contains(where: { $0.id == id }) { return f ? "ta fille" : "ton fils" }
-        if freresEtSoeurs(de: moiID).contains(where: { $0.id == id }) { return f ? "ta sœur" : "ton frère" }
-        if let p = pere(de: moiID), parents(de: p.id).contains(where: { $0.id == id }) {
-            return f ? "ta grand-mère paternelle" : "ton grand-père paternel"
+        let fem = x.sexe == .femme
+        func g(_ m: String, _ f: String) -> String { fem ? f : m }
+        if let s = parenteDeSang(depuis: moiID, cible: id) { return s }
+        if conjoints(de: moiID).contains(where: { $0.id == id }) { return g("Mari", "Épouse") }
+        // Conjoint d'un parent de sang.
+        for c in conjoints(de: id) {
+            guard let l = parenteDeSang(depuis: moiID, cible: c.id) else { continue }
+            switch l {
+            case "Papa", "Maman": return g("Beau-père", "Belle-mère")
+            case "Frère", "Sœur", "Demi-frère", "Demi-sœur": return g("Beau-frère", "Belle-sœur")
+            case "Fils", "Fille": return g("Gendre", "Belle-fille")
+            case "Oncle", "Tante": return g("Oncle", "Tante")
+            case _ where l.hasPrefix("Grand-père") || l.hasPrefix("Grand-mère"): return g("Grand-père", "Grand-mère")
+            default: return "Par alliance"
+            }
         }
-        if let m = mere(de: moiID), parents(de: m.id).contains(where: { $0.id == id }) {
-            return f ? "ta grand-mère maternelle" : "ton grand-père maternel"
+        // Famille de mon conjoint.
+        for e in conjoints(de: moiID) {
+            guard let l = parenteDeSang(depuis: e.id, cible: id) else { continue }
+            switch l {
+            case "Papa", "Maman": return g("Beau-père", "Belle-mère")
+            case "Frère", "Sœur", "Demi-frère", "Demi-sœur": return g("Beau-frère", "Belle-sœur")
+            default: return "Belle-famille"
+            }
         }
-        if mesParents.contains(where: { p in freresEtSoeurs(de: p).contains { $0.id == id } }) {
-            return f ? "ta tante" : "ton oncle"
-        }
-        if enfants(de: moiID).contains(where: { e in enfants(de: e.id).contains { $0.id == id } }) {
-            return f ? "ta petite-fille" : "ton petit-fils"
-        }
-        return "de la famille"
+        return "Famille"
     }
 
     // MARK: Écriture

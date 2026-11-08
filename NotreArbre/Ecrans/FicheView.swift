@@ -114,8 +114,7 @@ struct FicheView: View {
     private func sousTitre(_ p: Personne) -> String {
         var morceaux: [String] = []
         if let l = p.lieuNaissance, !l.isEmpty { morceaux.append("\(p.neAccorde.majusculeInitiale) à \(l)") }
-        let lien = model.famille.lienAvecMoi(p.id)
-        if !lien.isEmpty { morceaux.append(lien) }
+        morceaux.insert(model.famille.parente(de: p.id), at: 0)
         return morceaux.joined(separator: " · ")
     }
 
@@ -126,9 +125,21 @@ struct FicheView: View {
         }
         var l: [(Personne, String)] = []
         l += f.parents(de: p.id).map { ($0, detail($0, $0.sexe == .femme ? "Sa mère" : "Son père")) }
-        l += f.conjoints(de: p.id).map { ($0, detail($0, $0.sexe == .femme ? "Son épouse" : "Son époux")) }
-        l += f.freresEtSoeurs(de: p.id).map { ($0, detail($0, $0.sexe == .femme ? "Sa sœur" : "Son frère")) }
-        l += f.enfants(de: p.id).map { ($0, detail($0, $0.sexe == .femme ? "Sa fille" : "Son fils")) }
+        let conj = f.conjoints(de: p.id)
+        let rangs = ["", "2e ", "3e ", "4e "]
+        l += conj.enumerated().map { i, c in
+            (c, detail(c, c.sexe == .femme ? (conj.count > 1 ? "Sa \(rangs[safe: i] ?? "")épouse" : "Son épouse") : "Son mari"))
+        }
+        let mesParents = Set(f.parents(de: p.id).map(\.id))
+        l += f.freresEtSoeurs(de: p.id).map { x in
+            let demi = mesParents.intersection(f.parents(de: x.id).map(\.id)).count == 1 && (mesParents.count == 2 || f.parents(de: x.id).count == 2)
+            return (x, detail(x, x.sexe == .femme ? (demi ? "Sa demi-sœur" : "Sa sœur") : (demi ? "Son demi-frère" : "Son frère")))
+        }
+        l += f.enfants(de: p.id).map { e in
+            let autre = f.parents(de: e.id).first { $0.id != p.id }
+            let avec = conj.count > 1 ? (autre.map { " · avec \($0.prenom)" } ?? "") : ""
+            return (e, detail(e, e.sexe == .femme ? "Sa fille" : "Son fils") + avec)
+        }
         return l
     }
 
