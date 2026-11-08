@@ -554,3 +554,19 @@ final class CroisementsTests: XCTestCase {
         XCTAssertEqual(traitsTraversantUnNom(r), [])
     }
 }
+
+final class CouleursTests: XCTestCase {
+    func testEachCoupleHasItsOwnColor() {
+        var (f, _, pere, mere, _) = familleTest()
+        let halima = Personne(prenom: "Halima", sexe: .femme)
+        f = ajouterProche(halima, a: pere.id, lien: .conjoint, famille: f)
+        let demi = Personne(prenom: "Faouzia", sexe: .femme)
+        f = ajouterProche(demi, a: pere.id, lien: .enfant, famille: f, parentsChoisis: [halima.id])
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 150)
+        let p = r.noeuds.first { $0.id == pere.id }!, m = r.noeuds.first { $0.id == mere.id }!, d = r.noeuds.first { $0.id == demi.id }!
+        let coupleAvecMere = r.traits.first { $0.de.1 == p.y && $0.a.1 == p.y && Set([$0.de.0, $0.a.0]) == Set([p.x, m.x]) }!.groupe
+        let versDemi = r.traits.first { $0.de.0 == d.x && $0.a.1 == d.y }!.groupe
+        XCTAssertNotEqual(coupleAvecMere, versDemi, "les deux couples du père ont des couleurs différentes")
+        XCTAssertGreaterThanOrEqual(Set(r.traits.map(\.groupe)).count, 3)
+    }
+}

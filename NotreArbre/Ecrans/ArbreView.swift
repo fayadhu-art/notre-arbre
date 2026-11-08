@@ -5,6 +5,9 @@ import ArbreCore
 struct ArbreDessin: View {
     static let largeur: Double = 104
     static let ecart: Double = 150
+    /// Couleurs des traits, une par famille, bien distinctes les unes des autres.
+    static let palette: [Color] = [0x0F766E, 0xE4572E, 0x7C3AED, 0x2563EB, 0xD97706, 0xDB2777, 0x16A34A, 0x0891B2, 0x9D174D, 0x4D7C0F]
+        .map { Color(hex: $0) }
     let famille: Famille
     var pourImpression = false
     var surPersonne: ((UUID) -> Void)? = nil
@@ -13,18 +16,22 @@ struct ArbreDessin: View {
     var body: some View {
         let d = disposer(famille, largeurNoeud: Self.largeur, ecartGeneration: Self.ecart)
         ZStack(alignment: .topLeading) {
-            Path { p in
-                for t in d.traits where !t.pointille {
-                    p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
+            // Une couleur par famille (couple ou parent seul, avec ses enfants).
+            ForEach(Array(Set(d.traits.map(\.groupe))).sorted(), id: \.self) { g in
+                let couleur = Self.palette[g % Self.palette.count]
+                Path { p in
+                    for t in d.traits where t.groupe == g && !t.pointille {
+                        p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
+                    }
                 }
-            }
-            .stroke(Color.turquoise.opacity(pourImpression ? 0.6 : 0.35), lineWidth: 2)
-            Path { p in
-                for t in d.traits where t.pointille {
-                    p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
+                .stroke(couleur.opacity(0.8), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                Path { p in
+                    for t in d.traits where t.groupe == g && t.pointille {
+                        p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
+                    }
                 }
+                .stroke(couleur.opacity(0.55), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
             }
-            .stroke(Color.turquoise.opacity(0.45), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
 
             ForEach(d.noeuds, id: \.cle) { n in
                 cercle(n).position(x: n.x, y: n.y)
