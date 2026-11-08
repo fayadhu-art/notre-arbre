@@ -1,0 +1,9 @@
+.superpowers/
+build/
+*.xcodeproj/
+Payload/
+*.ipa
+.build/
+.swiftpm/
+NotreArbre/Info.plist
+.DS_Store

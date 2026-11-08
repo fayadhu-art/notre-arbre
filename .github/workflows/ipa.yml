@@ -1,0 +1,35 @@
+name: IPA
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tests de la logique (ArbreCore)
+        run: |
+          X=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          export DEVELOPER_DIR="$X/Contents/Developer"
+          cd ArbreCore && swift test
+  build:
+    needs: test
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Générer le projet
+        run: brew install xcodegen && xcodegen generate
+      - name: Compiler (Xcode le plus récent)
+        run: |
+          X=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          export DEVELOPER_DIR="$X/Contents/Developer"
+          xcodebuild -version
+          xcodebuild -project NotreArbre.xcodeproj -scheme NotreArbre -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          mkdir -p Payload && cp -R build/Build/Products/Release-iphoneos/NotreArbre.app Payload/
+          zip -qry NotreArbre.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NotreArbre-ipa
+          path: NotreArbre.ipa
