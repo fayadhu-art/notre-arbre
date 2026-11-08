@@ -8,6 +8,7 @@ struct FicheView: View {
     @State private var edition = false
     @State private var couple: IdentifiantCouple?
     @State private var capture = false
+    @State private var sonArbre = false
 
     var body: some View {
         Group {
@@ -18,6 +19,7 @@ struct FicheView: View {
             ToolbarItem(placement: .topBarTrailing) { Button("Modifier") { edition = true } }
         }
         .sheet(isPresented: $capture) { ImportCaptureView(parent: id).environment(model) }
+        .fullScreenCover(isPresented: $sonArbre) { ArbrePersonneView(id: id).environment(model) }
         .sheet(item: $couple) { c in
             EnfantsDuCoupleView(sujet: c.sujet, conjoint: c.conjoint).environment(model)
         }
@@ -110,6 +112,12 @@ struct FicheView: View {
                             .frame(maxWidth: .infinity).frame(height: 56)
                     }
                     .verreTeinte(rayon: 28)
+                    Button { sonArbre = true } label: {
+                        Label("Voir son arbre", systemImage: "point.3.connected.trianglepath.dotted")
+                            .font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.turquoise)
+                            .frame(maxWidth: .infinity).frame(height: 52)
+                    }
+                    .glassEffect(.regular.interactive(), in: .capsule)
                     Button { capture = true } label: {
                         Label("Ajouter ses enfants depuis une capture", systemImage: "text.viewfinder")
                             .font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.violetTexte)

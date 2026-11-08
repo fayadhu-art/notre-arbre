@@ -247,6 +247,21 @@ public struct Famille: Codable, Equatable, Sendable {
         return "Famille"
     }
 
+    /// L'arbre d'une seule personne : ses ancêtres, ses frères et sœurs, ses conjoints, ses descendants
+    /// et leurs conjoints. Les parentés sont recalculées depuis elle (elle devient « Moi »).
+    public func sousFamille(autour id: UUID) -> Famille {
+        let desc = descendants(de: id)
+        var ids: Set<UUID> = [id]
+        ids.formUnion(ancetres(de: id))
+        ids.formUnion(desc)
+        ids.formUnion(freresEtSoeurs(de: id).map(\.id))
+        for x in desc.union([id]) { ids.formUnion(conjoints(de: x).map(\.id)) }
+        return Famille(personnes: personnes.filter { ids.contains($0.id) },
+                       liensParent: liensParent.filter { ids.contains($0.parent) && ids.contains($0.enfant) },
+                       couples: couples.filter { ids.contains($0.a) && ids.contains($0.b) },
+                       moiID: id)
+    }
+
     // MARK: Écriture
 
     public mutating func ajouter(_ p: Personne) {

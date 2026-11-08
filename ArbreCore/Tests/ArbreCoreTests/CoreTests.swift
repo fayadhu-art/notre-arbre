@@ -677,3 +677,23 @@ final class AffiliationsTests: XCTestCase {
         XCTAssertTrue(r.traits.contains { Set($0.personnes) == [pere.id, mere.id] })
     }
 }
+
+final class SousFamilleTests: XCTestCase {
+    func testCousinTreeShowsOnlyHisOwnLine() {
+        var (f, moi, pere, mere, gm) = familleTest()
+        let oncle = Personne(prenom: "Abdou", sexe: .homme)
+        f = ajouterProche(oncle, a: pere.id, lien: .fratrie, famille: f)
+        let tante = Personne(prenom: "Mouna", sexe: .femme)
+        f = ajouterProche(tante, a: oncle.id, lien: .conjoint, famille: f)
+        let cousin = Personne(prenom: "Ali", sexe: .homme)
+        f = ajouterProche(cousin, a: oncle.id, lien: .enfant, famille: f)
+        let s = f.sousFamille(autour: cousin.id)
+        let ids = Set(s.personnes.map(\.id))
+        XCTAssertTrue(ids.isSuperset(of: [cousin.id, oncle.id, tante.id, gm.id]))
+        XCTAssertFalse(ids.contains(moi.id), "le cousin ne voit pas ma branche")
+        XCTAssertFalse(ids.contains(mere.id))
+        XCTAssertEqual(s.parente(de: oncle.id), "Papa")
+        XCTAssertEqual(s.parente(de: tante.id), "Maman")
+        XCTAssertEqual(s.parente(de: gm.id), "Grand-mère paternelle")
+    }
+}

@@ -25,11 +25,13 @@ enum FormatAffiche: String, CaseIterable, Identifiable {
 
 /// Crée le PDF vectoriel de l'affiche et renvoie son adresse.
 @MainActor
-func pdfAffiche(famille: Famille, format: FormatAffiche) -> URL? {
+func pdfAffiche(famille: Famille, format: FormatAffiche, titre: String = "Famille BAZAMA") -> URL? {
     let taille = format.points
-    let rendu = ImageRenderer(content: AfficheContenu(famille: famille, taille: taille))
+    let rendu = ImageRenderer(content: AfficheContenu(famille: famille, taille: taille, titre: titre))
     rendu.proposedSize = ProposedViewSize(taille)
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("famille-bazama-\(format.rawValue).pdf")
+    let fichier = titre.folding(options: .diacriticInsensitive, locale: nil).lowercased()
+        .components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }.joined(separator: "-")
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(fichier)-\(format.rawValue).pdf")
     var cadre = CGRect(origin: .zero, size: taille)
     var ok = false
     rendu.render { _, dessiner in
@@ -46,6 +48,7 @@ func pdfAffiche(famille: Famille, format: FormatAffiche) -> URL? {
 struct AfficheContenu: View {
     let famille: Famille
     let taille: CGSize
+    var titre = "Famille BAZAMA"
 
     var body: some View {
         let marge = 20 * 72 / 25.4
@@ -55,7 +58,7 @@ struct AfficheContenu: View {
         let dispo = CGSize(width: taille.width - 2 * marge, height: taille.height - 2 * marge - hautTitre - basPied - 40)
         let echelle = max(0.1, min(dispo.width / max(d.taille.0, 1), dispo.height / max(d.taille.1, 1)))
         VStack(spacing: 20) {
-            Text("Famille BAZAMA")
+            Text(titre)
                 .font(.system(size: hautTitre * 0.7, weight: .bold))
                 .foregroundStyle(Color.encre)
                 .frame(height: hautTitre)

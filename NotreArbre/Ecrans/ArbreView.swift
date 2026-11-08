@@ -136,6 +136,7 @@ struct ArbreView: View {
     @State private var zoomDepart: CGFloat = 1
     @State private var fiche: UUID?
     @State private var choix: UUID?
+    @State private var arbreDe: IdentifiantFiche?
     @State private var focus: UUID?
     @State private var affiche = false
 
@@ -208,10 +209,12 @@ struct ArbreView: View {
         .background(FondColore())
         .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(item: $fiche) { FicheView(id: $0) }
+        .fullScreenCover(item: $arbreDe) { a in ArbrePersonneView(id: a.id).environment(model) }
         .confirmationDialog(choix.flatMap { model.famille.personne($0)?.nomComplet } ?? "",
                             isPresented: Binding(get: { choix != nil }, set: { if !$0 { choix = nil } }),
                             titleVisibility: .visible, presenting: choix) { id in
             MenuAjout(id: id)
+            Button("Voir son arbre") { arbreDe = IdentifiantFiche(id: id) }
             Button("Voir la fiche") { fiche = id }
             Button("Annuler", role: .cancel) {}
         }
@@ -228,13 +231,15 @@ struct ArbreView: View {
 
 struct AfficheView: View {
     @Environment(AppModel.self) private var model
+    var famille: Famille? = nil
+    var titre = "Famille BAZAMA"
     @State private var format: FormatAffiche = .a1
     @State private var fichier: URL?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Imprimer l'arbre").font(.system(size: 24, weight: .bold))
-            Text("Un PDF net à toutes les tailles, avec « Famille BAZAMA » en haut. Envoie-le à un imprimeur.")
+            Text("Un PDF net à toutes les tailles, avec « \(titre) » en haut. Envoie-le à un imprimeur ou à la personne concernée.")
                 .font(.system(size: 15)).foregroundStyle(Color.gris)
             Picker("Format", selection: $format) {
                 ForEach(FormatAffiche.allCases) { Text($0.titre).tag($0) }
@@ -251,7 +256,7 @@ struct AfficheView: View {
                 }
                 .verreTeinte(rayon: 28)
             } else {
-                Button { fichier = pdfAffiche(famille: model.famille, format: format) } label: {
+                Button { fichier = pdfAffiche(famille: famille ?? model.famille, format: format, titre: titre) } label: {
                     Label("Créer le PDF \(format.titre)", systemImage: "doc.richtext")
                         .font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
                         .frame(maxWidth: .infinity).frame(height: 56)
@@ -260,5 +265,62 @@ struct AfficheView: View {
             }
         }
         .padding(24)
+    }
+}
+
+/// L'arbre d'une seule personne : uniquement ses ancêtres, ses frères et sœurs, ses conjoints et ses descendants,
+/// avec les parentés vues depuis elle. On peut l'imprimer ou l'envoyer à cette personne.
+struct ArbrePersonneView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var fermer
+    let id: UUID
+    @State private var zoom: CGFloat = 1
+    @State private var zoomDepart: CGFloat = 1
+    @State private var envoi = false
+
+    var body: some View {
+        let sous = model.famille.sousFamille(autour: id)
+        let p = model.famille.personne(id)
+        let d = disposer(sous, largeurNoeud: ArbreDessin.largeur, ecartGeneration: ArbreDessin.ecart)
+        ZStack(alignment: .top) {
+            FondColore()
+            ScrollView([.horizontal, .vertical], showsIndicators: false) {
+                ArbreDessin(famille: sous)
+                    .scaleEffect(zoom, anchor: .topLeading)
+                    .frame(width: d.taille.0 * zoom, height: d.taille.1 * zoom, alignment: .topLeading)
+                    .padding(20)
+                    .padding(.bottom, 40)
+            }
+            .padding(.top, 120)
+            .simultaneousGesture(
+                MagnifyGesture()
+                    .onChanged { zoom = min(2.5, max(0.4, zoomDepart * $0.magnification)) }
+                    .onEnded { _ in zoomDepart = zoom }
+            )
+            HStack(alignment: .center, spacing: 12) {
+                Button { fermer() } label: {
+                    Image(systemName: "xmark").font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.encre)
+                        .frame(width: 44, height: 44)
+                }
+                .glassEffect(.regular.interactive(), in: .circle)
+                .accessibilityLabel("Fermer")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Arbre de \(p?.prenom ?? "")").font(.system(size: 24, weight: .bold)).foregroundStyle(Color.encre)
+                    Text("\(sous.personnes.count) personnes · seulement sa lignée").font(.system(size: 14)).foregroundStyle(Color.gris)
+                }
+                Spacer()
+                Button { envoi = true } label: {
+                    Image(systemName: "square.and.arrow.up").font(.system(size: 18, weight: .medium)).foregroundStyle(Color.encre)
+                        .frame(width: 44, height: 44)
+                }
+                .glassEffect(.regular.interactive(), in: .circle)
+                .accessibilityLabel("Envoyer ou imprimer son arbre")
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+        }
+        .sheet(isPresented: $envoi) {
+            AfficheView(famille: sous, titre: "Famille de \(p?.nomComplet ?? "")").environment(model).presentationDetents([.medium])
+        }
     }
 }
