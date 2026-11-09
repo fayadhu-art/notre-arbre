@@ -133,7 +133,8 @@ struct ArbreView: View {
     @State private var arbreDe: IdentifiantFiche?
     @State private var focus: UUID?
     @State private var affiche = false
-    @AppStorage("vueEscalier") private var vueEscalier = true
+    @AppStorage("modeArbre") private var mode = "escalier"
+    private var vueEscalier: Bool { mode != "arbre" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -151,11 +152,22 @@ struct ArbreView: View {
                 .glassEffect(.regular.interactive(), in: .circle)
                 .accessibilityLabel("Imprimer l'arbre en grand format")
             }
-            Picker("Présentation", selection: $vueEscalier) {
-                Text("Escalier").tag(true)
-                Text("Arbre").tag(false)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach([("escalier", "Escalier", "list.bullet.indent"), ("arbre", "Arbre", "point.3.connected.trianglepath.dotted"),
+                             ("generations", "Générations", "square.stack.3d.up"), ("familles", "Familles", "person.3"),
+                             ("roue", "Roue", "circle.lefthalf.filled")], id: \.0) { m in
+                        Button { mode = m.0 } label: {
+                            Label(m.1, systemImage: m.2)
+                                .font(.system(size: 14, weight: mode == m.0 ? .semibold : .regular))
+                                .foregroundStyle(mode == m.0 ? .white : Color.encre)
+                                .padding(.horizontal, 14).frame(height: 36)
+                        }
+                        .buttonStyle(.plain)
+                        .glassEffect(mode == m.0 ? .regular.tint(Color.turquoise.opacity(0.9)).interactive() : .regular.interactive(), in: .capsule)
+                    }
+                }
             }
-            .pickerStyle(.segmented)
             if !vueEscalier {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -172,9 +184,21 @@ struct ArbreView: View {
         .overlay(alignment: .top) {
             if vueEscalier {
                 ScrollView(.vertical, showsIndicators: false) {
-                    EscalierView(surPersonne: { choix = $0 })
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 120)
+                    Group {
+                        switch mode {
+                        case "generations": GenerationsView(famille: model.famille, surPersonne: { choix = $0 })
+                        case "familles": FamillesView(famille: model.famille, surPersonne: { choix = $0 })
+                        case "roue":
+                            VStack(alignment: .leading, spacing: 8) {
+                                RoueView(famille: model.famille, surPersonne: { choix = $0 })
+                                Text("Toi au centre, tes parents puis tes grands-parents autour. Côté père à droite, côté mère à gauche. Touche une case vide pour ajouter l'ancêtre manquant.")
+                                    .font(.system(size: 12)).foregroundStyle(Color.gris)
+                            }
+                        default: EscalierView(surPersonne: { choix = $0 })
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 120)
                 }
                 .padding(.top, 150)
             } else {

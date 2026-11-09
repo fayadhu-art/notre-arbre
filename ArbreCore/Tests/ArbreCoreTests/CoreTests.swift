@@ -804,3 +804,25 @@ final class EscalierTests: XCTestCase {
         XCTAssertTrue(unions[1].dernier)
     }
 }
+
+final class AffichagesTests: XCTestCase {
+    func testSosaNumbers() {
+        let (f, moi, pere, mere, gm) = familleTest()
+        let s = numerosSosa(f)
+        XCTAssertEqual(s[1], moi.id)
+        XCTAssertEqual(s[2], pere.id)
+        XCTAssertEqual(s[3], mere.id)
+        XCTAssertEqual(s[5], gm.id, "la grand-mère paternelle est la mère du père : 2×2+1")
+    }
+
+    func testGenerationsAndFamilies() {
+        var (f, moi, pere, mere, _) = familleTest()
+        f = ajouterProche(Personne(prenom: "Insya"), a: moi.id, lien: .enfant, famille: f)
+        let g = parGeneration(f)
+        XCTAssertEqual(g.map(\.titre), ["Grands-parents et grands-oncles", "Parents, oncles et tantes", "Ma génération", "Enfants, neveux et nièces"])
+        XCTAssertEqual(g[1].personnes.map(\.id), [pere.id, mere.id], "côté père d'abord")
+        let cartes = famillesUneParUne(f)
+        XCTAssertEqual(cartes.first?.generation, -2)
+        XCTAssertTrue(cartes.contains { Set($0.parents) == [pere.id, mere.id] && $0.enfants == [moi.id] })
+    }
+}
