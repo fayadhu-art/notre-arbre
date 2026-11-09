@@ -133,6 +133,7 @@ struct ArbreView: View {
     @State private var arbreDe: IdentifiantFiche?
     @State private var focus: UUID?
     @State private var affiche = false
+    @AppStorage("vueEscalier") private var vueEscalier = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -150,6 +151,12 @@ struct ArbreView: View {
                 .glassEffect(.regular.interactive(), in: .circle)
                 .accessibilityLabel("Imprimer l'arbre en grand format")
             }
+            Picker("Présentation", selection: $vueEscalier) {
+                Text("Escalier").tag(true)
+                Text("Arbre").tag(false)
+            }
+            .pickerStyle(.segmented)
+            if !vueEscalier {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     puce { HStack(spacing: 6) { Circle().stroke(Color.turquoise, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2])).frame(width: 12, height: 12); Text("à compléter") } }
@@ -157,11 +164,20 @@ struct ArbreView: View {
                     puce { Text("gris italique = par alliance").italic() }
                 }
             }
+            }
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
         .frame(maxHeight: .infinity, alignment: .top)
         .overlay(alignment: .top) {
+            if vueEscalier {
+                ScrollView(.vertical, showsIndicators: false) {
+                    EscalierView(surPersonne: { choix = $0 })
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 120)
+                }
+                .padding(.top, 150)
+            } else {
             ScrollView([.horizontal, .vertical], showsIndicators: false) {
                 let d = disposer(model.famille, largeurNoeud: ArbreDessin.largeur, ecartGeneration: ArbreDessin.ecart)
                 ArbreDessin(famille: model.famille,
@@ -178,12 +194,13 @@ struct ArbreView: View {
                     .padding(.bottom, 120)
             }
             .defaultScrollAnchor(.top)
-            .padding(.top, 140)
+            .padding(.top, 185)
             .simultaneousGesture(
                 MagnifyGesture()
                     .onChanged { zoom = min(2.5, max(0.4, zoomDepart * $0.magnification)) }
                     .onEnded { _ in zoomDepart = zoom }
             )
+            }
         }
         .overlay(alignment: .bottom) {
             if let f = focus, let p = model.famille.personne(f) {

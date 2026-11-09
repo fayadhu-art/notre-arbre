@@ -759,3 +759,48 @@ final class BullesEtTraitsTests: XCTestCase {
         }
     }
 }
+
+final class EscalierTests: XCTestCase {
+    func testStaircaseListsFatherSideThenMotherSideWithChildrenBelow() {
+        var (f, moi, pere, mere, gm) = familleTest()
+        let fatuma = Personne(prenom: "Fatuma", sexe: .femme)
+        f = ajouterProche(fatuma, a: moi.id, lien: .conjoint, famille: f)
+        let insya = Personne(prenom: "Insya"), nassem = Personne(prenom: "Nassem")
+        f = ajouterProche(insya, a: moi.id, lien: .enfant, famille: f)
+        f = ajouterProche(nassem, a: moi.id, lien: .enfant, famille: f)
+        let gpMat = Personne(prenom: "Matoir", sexe: .homme)
+        f = ajouterProche(gpMat, a: mere.id, lien: .pere, famille: f)
+        let l = escalier(f)
+        XCTAssertEqual(l.first?.genre, .titre("Côté père"))
+        XCTAssertEqual(l[1].genre, .personne(gm.id, conjoint: nil))
+        XCTAssertEqual(l[2].genre, .personne(pere.id, conjoint: mere.id))
+        XCTAssertEqual(l[2].profondeur, 1)
+        XCTAssertEqual(l[3].genre, .personne(moi.id, conjoint: fatuma.id))
+        XCTAssertEqual(l[4].genre, .personne(insya.id, conjoint: nil))
+        XCTAssertEqual(l[4].profondeur, 3)
+        XCTAssertFalse(l[4].dernier)
+        XCTAssertTrue(l[5].dernier)
+        XCTAssertTrue(l.contains { $0.genre == .titre("Côté mère") })
+        XCTAssertTrue(l.contains { $0.genre == .renvoi(mere.id) }, "Maman, déjà affichée côté père, renvoie plus haut")
+        let ids = l.compactMap { if case .personne(let p, _) = $0.genre { return p } else { return nil } }
+        XCTAssertEqual(ids.count, Set(ids).count, "chaque personne n'apparaît qu'une fois")
+    }
+
+    func testSeveralSpousesGiveOneUnionRowEachWithTheirChildren() {
+        let h = Personne(prenom: "Ahamada", sexe: .homme)
+        var f = Famille(moiID: h.id)
+        f.ajouter(h)
+        var epouses: [Personne] = []
+        for nom in ["Zaharia", "Halima"] {
+            let e = Personne(prenom: nom, sexe: .femme)
+            f = ajouterProche(e, a: h.id, lien: .conjoint, famille: f)
+            f = ajouterProche(Personne(prenom: "Enfant \(nom)"), a: h.id, lien: .enfant, famille: f, parentsChoisis: [e.id])
+            epouses.append(e)
+        }
+        let l = escalier(f)
+        let unions = l.filter { if case .union = $0.genre { return true } else { return false } }
+        XCTAssertEqual(unions.count, 2)
+        XCTAssertNotEqual(unions[0].groupe, unions[1].groupe)
+        XCTAssertTrue(unions[1].dernier)
+    }
+}
