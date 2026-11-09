@@ -737,3 +737,25 @@ final class BullesTests: XCTestCase {
         XCTAssertEqual(capsule.groupe, fratrie?.groupe)
     }
 }
+
+final class BullesEtTraitsTests: XCTestCase {
+    func testBubbleColorsMatchLineColors() {
+        var (f, moi, pere, mere, _) = familleTest()
+        let fatuma = Personne(prenom: "Fatuma", sexe: .femme)
+        f = ajouterProche(fatuma, a: moi.id, lien: .conjoint, famille: f)
+        f = ajouterProche(Personne(prenom: "Insya"), a: moi.id, lien: .enfant, famille: f, parentsChoisis: [fatuma.id])
+        let antoissi = Personne(prenom: "Antoissi", sexe: .homme)
+        f = ajouterProche(antoissi, a: mere.id, lien: .conjoint, famille: f)
+        f = ajouterProche(Personne(prenom: "Chamouine"), a: mere.id, lien: .enfant, famille: f, parentsChoisis: [antoissi.id])
+        _ = pere
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 150)
+        let b = bulles(f, largeurNoeud: 104, ecartGeneration: 150)
+        for bulle in b where !bulle.estCouple {
+            let dedans = r.noeuds.filter { $0.x > bulle.x1 && $0.x < bulle.x2 && $0.y > bulle.y1 && $0.y < bulle.y2 }
+            for n in dedans {
+                let trait = r.traits.first { abs($0.a.0 - n.x) < 0.01 && abs($0.a.1 - n.y) < 0.01 && abs($0.de.0 - $0.a.0) < 0.01 }
+                XCTAssertEqual(trait?.groupe, bulle.groupe, "la carte et le trait vers \(n.libelle) ont la même couleur")
+            }
+        }
+    }
+}

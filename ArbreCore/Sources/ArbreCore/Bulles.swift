@@ -41,8 +41,13 @@ public func bulles(_ f: Famille, largeurNoeud w: Double = 84, ecartGeneration: D
         let pb = b.value.compactMap { pos[$0] }.min { ($0.1, $0.0) < ($1.1, $1.0) } ?? (0, 0)
         return (pa.1, pa.0) < (pb.1, pb.0)
     }
+    // Même couleur que les traits : on reprend le numéro du trait qui arrive sur un enfant de la famille.
+    func groupeDuTrait(versEnfant e: UUID) -> Int? {
+        guard let p = pos[e] else { return nil }
+        return r.traits.first { abs($0.a.0 - p.0) < 0.01 && abs($0.a.1 - p.1) < 0.01 && abs($0.de.0 - $0.a.0) < 0.01 }?.groupe
+    }
     var groupes: [[UUID]: Int] = [:]
-    for (k, _) in ordre { groupes[k] = groupes.count }
+    for (k, enfants) in ordre { groupes[k] = enfants.lazy.compactMap(groupeDuTrait).first ?? (1000 + groupes.count) }
 
     var resultat: [Bulle] = []
     let tous = r.noeuds
@@ -74,11 +79,9 @@ public func bulles(_ f: Famille, largeurNoeud w: Double = 84, ecartGeneration: D
     for c in f.couples {
         guard let a = pos[c.a], let b = pos[c.b], a.1 == b.1, abs(a.0 - b.0) <= espaceCouple + 0.5 else { continue }
         let k = cle([c.a, c.b])
-        let g = groupes[k] ?? {
-            let n = groupes.count
-            groupes[k] = n
-            return n
-        }()
+        let trait = r.traits.first { abs($0.de.1 - a.1) < 0.01 && abs($0.a.1 - a.1) < 0.01
+            && Set([$0.de.0, $0.a.0].map { ($0 * 100).rounded() }) == Set([a.0, b.0].map { ($0 * 100).rounded() }) }
+        let g = groupes[k] ?? trait?.groupe ?? (2000 + resultat.count)
         resultat.append(Bulle(id: "c\(c.a)-\(c.b)", x1: min(a.0, b.0) - 32, x2: max(a.0, b.0) + 32,
                               y1: a.1 - 32, y2: a.1 + 32, groupe: g, titre: nil, estCouple: true))
     }

@@ -53,6 +53,23 @@ struct ArbreDessin: View {
                     .position(x: (b.x1 + b.x2) / 2, y: (b.y1 + b.y2) / 2)
             }
 
+            // Traits de chaque famille, de la même couleur que sa capsule et sa carte : on suit qui est l'enfant de qui.
+            ForEach(Array(Set(d.traits.map(\.groupe))).sorted(), id: \.self) { g in
+                let couleur = Self.palette[g % Self.palette.count]
+                Path { p in
+                    for t in d.traits where t.groupe == g && !t.pointille {
+                        p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
+                    }
+                }
+                .stroke(couleur, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                Path { p in
+                    for t in d.traits where t.groupe == g && t.pointille {
+                        p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
+                    }
+                }
+                .stroke(couleur.opacity(0.6), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
+            }
+
             ForEach(d.noeuds, id: \.cle) { n in
               Group {
                 cercle(n).position(x: n.x, y: n.y)
