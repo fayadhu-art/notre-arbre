@@ -33,8 +33,9 @@ private struct Element {
 
 public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: Double = 130)
     -> (noeuds: [Noeud], traits: [Trait], taille: (Double, Double)) {
-    let espaceCouple = largeurNoeud + 6
-    let espaceUnites = largeurNoeud + 20
+    // Assez d'espace entre deux conjoints pour qu'un trait descende entre leurs noms sans les frôler.
+    let espaceCouple = largeurNoeud + 24
+    let espaceUnites = largeurNoeud + 36
 
     // 1. Éléments : personnes et parents à trouver.
     var gens = f.generations()
@@ -192,106 +193,153 @@ public func disposer(_ f: Famille, largeurNoeud: Double = 84, ecartGeneration: D
         placer(unitesParGen[g]!, cible: cibleEnfants)
     }
 
-    // 4. Normalisation et nœuds.
-    let minX = x.values.min() ?? 0
-    let minGen = toutesGens.first ?? 0
-    let marge = largeurNoeud / 2
-    func pos(_ c: String) -> (Double, Double) {
-        (x[c]! - minX + marge, Double(elements[c]!.gen - minGen) * ecartGeneration + 26)
+    // 4. Familles (un couple ou un parent seul, avec ses enfants) et pistes des traits.
+    // Un parent seul marié une seule fois est regroupé avec son couple : une seule famille, un seul trait.
+    func cleFamille(_ ps0: [String]) -> [String] {
+        if ps0.count == 1, let conj = conjointsDe[ps0[0]], conj.count == 1 { return [ps0[0], conj[0]] }
+        return ps0
     }
-    let noeuds: [Noeud] = ordre.map { c in
-        let e = elements[c]!
-        let (px, py) = pos(c)
-        return Noeud(cle: c, id: e.id, x: px, y: py, aCompleter: e.id == nil,
-                     libelle: e.id.flatMap { f.personne($0)?.prenom } ?? "À trouver",
-                     pour: e.pour, role: e.role)
+    var familles: [String: (parents: [String], enfants: [String])] = [:]
+    var ordreFamilles: [String] = []
+    for cle in ordre {
+        guard let ps0 = parentsDe[cle] else { continue }
+        let ps = cleFamille(ps0)
+        let k = ps.sorted().joined(separator: "|")
+        if familles[k] == nil { familles[k] = (ps, []); ordreFamilles.append(k) }
+        familles[k]!.enfants.append(cle)
     }
-
-    // 5. Traits : couples, puis familles (parents → enfants). Chaque famille a son numéro de couleur.
-    var traits: [Trait] = []
     var groupes: [String: Int] = [:]
     func groupe(_ ps0: [String]) -> Int {
-        // Parent seul marié à une seule personne : ses enfants prennent la couleur de son couple.
-        var ps = ps0
-        if ps.count == 1, let conj = conjointsDe[ps[0]], conj.count == 1 { ps = [ps[0], conj[0]] }
-        let k = ps.sorted().joined(separator: "|")
+        let k = cleFamille(ps0).sorted().joined(separator: "|")
         if let g = groupes[k] { return g }
         groupes[k] = groupes.count
         return groupes[k]!
     }
-    for cle in ordre { if let ps = parentsDe[cle] { _ = groupe(ps) } }
-    for a in ordre {
-        for b in conjointsDe[a] ?? [] where rang[a]! < rang[b]! {
-            let pa = pos(a), pb = pos(b)
-            let pointille = elements[a]!.id == nil || elements[b]!.id == nil
-            let gr = groupe([a, b])
-            let ids = [a, b].compactMap { elements[$0]!.id }
-            if abs(pa.0 - pb.0) <= espaceCouple + 0.5 {
-                traits.append(Trait(de: pa, a: pb, pointille: pointille, groupe: gr, personnes: ids))
-            } else {
-                // Conjoints éloignés : petit pont au-dessus des cercles, sans traverser la personne entre eux.
-                let (g, d) = pa.0 < pb.0 ? (pa, pb) : (pb, pa)
-                let haut = g.1 - 30, bord = g.1 - 20
-                traits.append(Trait(de: (g.0 + 16, bord), a: (g.0 + 16, haut), pointille: pointille, groupe: gr, personnes: ids))
-                traits.append(Trait(de: (g.0 + 16, haut), a: (d.0 - 16, haut), pointille: pointille, groupe: gr, personnes: ids))
-                traits.append(Trait(de: (d.0 - 16, haut), a: (d.0 - 16, bord), pointille: pointille, groupe: gr, personnes: ids))
-            }
-        }
-    }
-    var familles: [String: (parents: [String], enfants: [String])] = [:]
-    for cle in ordre { if let ps = parentsDe[cle] {
-        let k = ps.sorted().joined(separator: "|")
-        familles[k, default: (ps, [])].enfants.append(cle)
-    } }
+    for k in ordreFamilles { _ = groupe(familles[k]!.parents) }
+
+    let minX = x.values.min() ?? 0
+    let marge = largeurNoeud / 2
+    func px(_ c: String) -> Double { x[c]! - minX + marge }
+
     // Chaque famille : un trait qui descend du point de départ, une barre horizontale, puis un trait par enfant.
-    // Les barres d'une même rangée sont mises à des hauteurs différentes, choisies pour qu'aucun trait ne se croise.
-    struct Fam { let parents: [String]; let enfants: [String]; let x: Double; let y: Double; let sousLeNom: Bool
-                 let gauche: Double; let droite: Double; let pointille: Bool }
-    var parRangee: [Double: [Fam]] = [:]
-    for (_, fam) in familles {
+    // Dans une rangée, deux barres qui se chevauchent (ou se frôlent) ont chacune leur piste, espacées de 16 points.
+    // L'ordre des pistes est choisi pour qu'aucun trait n'en croise un autre.
+    struct Fam { let parents: [String]; let enfants: [String]; let x: Double; let sousLeNom: Bool
+                 let gauche: Double; let droite: Double; let pointille: Bool; var niveau = 0 }
+    let pasPiste = 16.0, margeBarre = 14.0
+    var famsParGen: [Int: [Fam]] = [:]
+    for k in ordreFamilles {
+        let fam = familles[k]!
         guard let d = depart(fam.parents) else { continue }
-        let py = pos(fam.parents[0]).1
         let dx = d.x - minX + marge
-        let xs = fam.enfants.map { pos($0).0 }
-        parRangee[py, default: []].append(Fam(parents: fam.parents, enfants: fam.enfants, x: dx, y: py, sousLeNom: d.sousLeNom,
-                                               gauche: min(dx, xs.min()!), droite: max(dx, xs.max()!),
-                                               pointille: fam.parents.contains { elements[$0]!.id == nil }))
+        let xs = fam.enfants.map(px)
+        famsParGen[elements[fam.parents[0]]!.gen, default: []].append(
+            Fam(parents: fam.parents, enfants: fam.enfants, x: dx, sousLeNom: d.sousLeNom,
+                gauche: min(dx, xs.min()!), droite: max(dx, xs.max()!),
+                pointille: fam.parents.contains { elements[$0]!.id == nil }))
     }
-    for (py, liste) in parRangee {
-        let fams = liste.sorted { ($0.x, $0.gauche) < ($1.x, $1.gauche) }
-        // Contraintes « au-dessus » : si la barre de A passe sous le départ de B, B doit être plus haut que A, et inversement.
+    var pistesParGen: [Int: Int] = [:]
+    for (g, liste) in famsParGen {
+        var fams = liste.sorted { ($0.x, $0.gauche) < ($1.x, $1.gauche) }
         let n = fams.count
-        var auDessus: [[Int]] = Array(repeating: [], count: n)   // auDessus[i] = familles qui doivent être sous i
+        var dessous: [[Int]] = Array(repeating: [], count: n)   // dessous[i] = familles qui doivent passer sous i
         for a in 0..<n { for b in (a + 1)..<max(a + 1, n) {
             let A = fams[a], B = fams[b]
-            guard A.droite > B.gauche else { continue }
-            if A.droite > B.x { auDessus[b].append(a) } else { auDessus[a].append(b) }
+            guard A.droite + margeBarre > B.gauche else { continue }
+            // Le départ de B tombe sur la barre de A : la barre de B passe au-dessus. Sinon l'inverse.
+            if A.droite + margeBarre > B.x { dessous[b].append(a) } else { dessous[a].append(b) }
         } }
         var niveau = Array(repeating: 0, count: n)
         for _ in 0..<n {
             var change = false
-            for i in 0..<n { for j in auDessus[i] where niveau[j] < niveau[i] + 1 && niveau[i] + 1 < n {
+            for i in 0..<n { for j in dessous[i] where niveau[j] < niveau[i] + 1 && niveau[i] + 1 < n {
                 niveau[j] = niveau[i] + 1; change = true
             } }
             if !change { break }
         }
-        let nbNiveaux = (niveau.max() ?? 0) + 1
-        let haut = py + ecartGeneration * 0.60, bas = py + ecartGeneration - 30
-        let pas = nbNiveaux > 1 ? min(8, (bas - haut) / Double(nbNiveaux - 1)) : 0
-        for (k, f) in fams.enumerated() {
-            let ids = (f.parents + f.enfants).compactMap { elements[$0]!.id }
-            let midY = haut + Double(niveau[k]) * pas
-            let debut = f.sousLeNom ? py + ecartGeneration * 0.58 : py
-            traits.append(Trait(de: (f.x, debut), a: (f.x, midY), pointille: f.pointille, groupe: groupe(f.parents), personnes: ids))
-            if f.droite > f.gauche { traits.append(Trait(de: (f.gauche, midY), a: (f.droite, midY), pointille: f.pointille, groupe: groupe(f.parents), personnes: ids)) }
-            for c in f.enfants {
+        for i in 0..<n { fams[i].niveau = niveau[i] }
+        famsParGen[g] = fams
+        pistesParGen[g] = (niveau.max() ?? 0) + 1
+    }
+
+    // Conjoints éloignés (personne mariée plusieurs fois) : un pont au-dessus des cercles.
+    // Plusieurs ponts du même côté sont emboîtés : le plus long passe le plus haut.
+    struct Pont { let centre: String; let autre: String }
+    var adjacents: [(String, String)] = []
+    var pontsParCote: [String: [Pont]] = [:]
+    for a in ordre {
+        for b in conjointsDe[a] ?? [] where rang[a]! < rang[b]! {
+            if abs(x[a]! - x[b]!) <= espaceCouple + 0.5 { adjacents.append((a, b)); continue }
+            let centre = nbConjoints(a) >= nbConjoints(b) ? a : b
+            let autre = centre == a ? b : a
+            pontsParCote[centre + (x[autre]! < x[centre]! ? "|g" : "|d"), default: []].append(Pont(centre: centre, autre: autre))
+        }
+    }
+    var pontsParGen: [Int: Int] = [:]
+    for (_, liste) in pontsParCote {
+        let g = elements[liste[0].centre]!.gen
+        pontsParGen[g] = max(pontsParGen[g] ?? 0, liste.count)
+    }
+
+    // 5. Hauteur de chaque rangée : l'écart grandit avec le nombre de pistes et de ponts, pour que rien ne se touche.
+    let toutes = toutesGens
+    let minGen = toutes.first ?? 0, maxGen = toutes.last ?? 0
+    var yDe: [Int: Double] = [:]
+    var yCourant = 26.0 + ((pontsParGen[minGen] ?? 0) > 0 ? 20 + 10 * Double(pontsParGen[minGen]!) : 0)
+    for g in minGen...maxGen {
+        yDe[g] = yCourant
+        let pistes = Double(max(0, (pistesParGen[g] ?? 1) - 1))
+        let ponts = Double(max(0, (pontsParGen[g + 1] ?? 0) - 1))
+        yCourant += ecartGeneration + pistes * pasPiste + ponts * 10
+    }
+    func pos(_ c: String) -> (Double, Double) { (px(c), yDe[elements[c]!.gen]!) }
+    let noeuds: [Noeud] = ordre.map { c in
+        let e = elements[c]!
+        let (qx, qy) = pos(c)
+        return Noeud(cle: c, id: e.id, x: qx, y: qy, aCompleter: e.id == nil,
+                     libelle: e.id.flatMap { f.personne($0)?.prenom } ?? "À trouver",
+                     pour: e.pour, role: e.role)
+    }
+
+    // 6. Traits.
+    var traits: [Trait] = []
+    for (a, b) in adjacents {
+        traits.append(Trait(de: pos(a), a: pos(b), pointille: elements[a]!.id == nil || elements[b]!.id == nil,
+                            groupe: groupe([a, b]), personnes: [a, b].compactMap { elements[$0]!.id }))
+    }
+    for (cle, liste0) in pontsParCote {
+        let sens: Double = cle.hasSuffix("|g") ? -1 : 1
+        let liste = liste0.sorted { abs(x[$0.autre]! - x[$0.centre]!) > abs(x[$1.autre]! - x[$1.centre]!) }
+        for (j, p) in liste.enumerated() {
+            let c = pos(p.centre), o = pos(p.autre)
+            let dx = min(12 + 9 * Double(j), 24)
+            let haut = c.1 - 36 - 10 * Double(liste.count - 1 - j)
+            let x1 = c.0 + sens * dx, x2 = o.0 - sens * 14
+            let pointille = elements[p.centre]!.id == nil || elements[p.autre]!.id == nil
+            let gr = groupe([p.centre, p.autre])
+            let ids = [p.centre, p.autre].compactMap { elements[$0]!.id }
+            traits.append(Trait(de: (x1, c.1 - (676 - dx * dx).squareRoot()), a: (x1, haut), pointille: pointille, groupe: gr, personnes: ids))
+            traits.append(Trait(de: (x1, haut), a: (x2, haut), pointille: pointille, groupe: gr, personnes: ids))
+            traits.append(Trait(de: (x2, haut), a: (x2, o.1 - 21.9), pointille: pointille, groupe: gr, personnes: ids))
+        }
+    }
+    for (g, fams) in famsParGen {
+        let py = yDe[g]!
+        for fa in fams {
+            let ids = (fa.parents + fa.enfants).compactMap { elements[$0]!.id }
+            let gr = groupe(fa.parents)
+            let midY = py + ecartGeneration * 0.62 + Double(fa.niveau) * pasPiste
+            let debut = fa.sousLeNom ? py + ecartGeneration * 0.58 : py
+            traits.append(Trait(de: (fa.x, debut), a: (fa.x, midY), pointille: fa.pointille, groupe: gr, personnes: ids))
+            if fa.droite > fa.gauche { traits.append(Trait(de: (fa.gauche, midY), a: (fa.droite, midY), pointille: fa.pointille, groupe: gr, personnes: ids)) }
+            for c in fa.enfants {
                 let (cx, cy) = pos(c)
-                traits.append(Trait(de: (cx, midY), a: (cx, cy), pointille: f.pointille, groupe: groupe(f.parents), personnes: ids))
+                traits.append(Trait(de: (cx, midY), a: (cx, cy), pointille: fa.pointille, groupe: gr, personnes: ids))
             }
         }
     }
 
     let maxX = noeuds.map(\.x).max() ?? 0
     let maxY = noeuds.map(\.y).max() ?? 0
-    return (noeuds, traits, (maxX + marge, maxY + 70))
+    return (noeuds, traits, (maxX + marge, maxY + 92))
 }

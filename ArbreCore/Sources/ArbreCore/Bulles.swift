@@ -18,7 +18,7 @@ public func bulles(_ f: Famille, largeurNoeud w: Double = 84, ecartGeneration: D
     let r = disposer(f, largeurNoeud: w, ecartGeneration: ecartGeneration)
     var pos: [UUID: (Double, Double)] = [:]
     for n in r.noeuds { if let id = n.id { pos[id] = (n.x, n.y) } }
-    let espaceCouple = w + 6
+    let espaceCouple = w + 24
 
     // Clé d'une famille : ses parents réels. Un parent seul marié une seule fois = son couple.
     func cle(_ parents: [UUID]) -> [UUID] {

@@ -187,7 +187,7 @@ final class DispositionTests: XCTestCase {
         let r = disposer(f)
         let p = r.noeuds.first { $0.id == pere.id }!, m = r.noeuds.first { $0.id == mere.id }!
         XCTAssertEqual(p.y, m.y)
-        XCTAssertLessThan(abs(p.x - m.x), 84 * 1.2)
+        XCTAssertLessThan(abs(p.x - m.x), 84 * 1.4)
         XCTAssertGreaterThan(p.x, m.x, "le père est à droite, la mère à gauche")
     }
 }
@@ -824,5 +824,97 @@ final class AffichagesTests: XCTestCase {
         let cartes = famillesUneParUne(f)
         XCTAssertEqual(cartes.first?.generation, -2)
         XCTAssertTrue(cartes.contains { Set($0.parents) == [pere.id, mere.id] && $0.enfants == [moi.id] })
+    }
+}
+
+/// Traits de familles différentes qui se superposent ou se frôlent (moins de 8 points d'écart sur une même longueur).
+private func traitsTropProches(_ traits: [Trait]) -> Int {
+    let e = 0.01
+    var n = 0
+    for (i, a) in traits.enumerated() {
+        for b in traits[(i + 1)...] where a.groupe != b.groupe {
+            let aH = abs(a.de.1 - a.a.1) < e, bH = abs(b.de.1 - b.a.1) < e
+            let aV = abs(a.de.0 - a.a.0) < e, bV = abs(b.de.0 - b.a.0) < e
+            if aH && bH && !aV && !bV && abs(a.de.1 - b.de.1) < 8 {
+                let rec = min(max(a.de.0, a.a.0), max(b.de.0, b.a.0)) - max(min(a.de.0, a.a.0), min(b.de.0, b.a.0))
+                if rec > 1 { n += 1 }
+            }
+            if aV && bV && !aH && !bH && abs(a.de.0 - b.de.0) < 8 {
+                let rec = min(max(a.de.1, a.a.1), max(b.de.1, b.a.1)) - max(min(a.de.1, a.a.1), min(b.de.1, b.a.1))
+                if rec > 1 { n += 1 }
+            }
+        }
+    }
+    return n
+}
+
+final class TraitsSeparesTests: XCTestCase {
+    /// Grande famille : grands-parents des deux côtés, oncles et tantes avec enfants, mère avec trois maris,
+    /// moi marié avec des enfants ajoutés avant et après l'épouse.
+    func grandeFamille() -> Famille {
+        var (f, moi, pere, mere, _) = familleTest()
+        f = ajouterProche(Personne(prenom: "Anli", sexe: .homme), a: pere.id, lien: .pere, famille: f)
+        f = ajouterProche(Personne(prenom: "Matoir", sexe: .homme), a: mere.id, lien: .pere, famille: f)
+        f = ajouterProche(Personne(prenom: "Fatima", sexe: .femme), a: mere.id, lien: .mere, famille: f)
+        for n in ["Mouhaza", "Hamidati", "Safi"] {
+            let t = Personne(prenom: n, sexe: .femme)
+            f = ajouterProche(t, a: mere.id, lien: .fratrie, famille: f)
+            let mari = Personne(prenom: "Mari de \(n)", sexe: .homme)
+            f = ajouterProche(mari, a: t.id, lien: .conjoint, famille: f)
+            for i in 1...3 { f = ajouterProche(Personne(prenom: "\(n) \(i)"), a: t.id, lien: .enfant, famille: f, parentsChoisis: [mari.id]) }
+        }
+        let idrissa = Personne(prenom: "Idrissa", sexe: .homme)
+        f = ajouterProche(idrissa, a: pere.id, lien: .fratrie, famille: f)
+        f = ajouterProche(Personne(prenom: "Fils d'Idrissa"), a: idrissa.id, lien: .enfant, famille: f)
+        f = ajouterProche(Personne(prenom: "Insya"), a: moi.id, lien: .enfant, famille: f)
+        let fatuma = Personne(prenom: "Fatuma", sexe: .femme)
+        f = ajouterProche(fatuma, a: moi.id, lien: .conjoint, famille: f)
+        f = ajouterProche(Personne(prenom: "Nassem"), a: moi.id, lien: .enfant, famille: f, parentsChoisis: [fatuma.id])
+        f = ajouterProche(Personne(prenom: "Ben Anli", sexe: .homme), a: moi.id, lien: .fratrie, famille: f, parentsChoisis: [pere.id, mere.id])
+        for (mari, enfants) in [("Antoissi", ["Chamouine"]), ("Mohamadi", ["Fayna", "Fainouni"])] {
+            let m = Personne(prenom: mari, sexe: .homme)
+            f = ajouterProche(m, a: mere.id, lien: .conjoint, famille: f)
+            for e in enfants { f = ajouterProche(Personne(prenom: e), a: mere.id, lien: .enfant, famille: f, parentsChoisis: [m.id]) }
+        }
+        return f
+    }
+
+    func testBigFamilyLinesNeverCrossOverlapOrBrush() {
+        let r = disposer(grandeFamille(), largeurNoeud: 104, ecartGeneration: 164)
+        XCTAssertEqual(croisements(r.traits), 0, "aucun croisement")
+        XCTAssertEqual(traitsTropProches(r.traits), 0, "aucun trait superposé ou trop proche d'un autre")
+        XCTAssertEqual(traitsTraversantUnNom(r), [])
+    }
+
+    func testFourWivesNestedBridgesStaySeparated() {
+        let h = Personne(prenom: "Ahamada", sexe: .homme)
+        var f = Famille(moiID: h.id)
+        f.ajouter(h)
+        for nom in ["Zaharia", "Halima", "Echati", "Mariama"] {
+            let e = Personne(prenom: nom, sexe: .femme)
+            f = ajouterProche(e, a: h.id, lien: .conjoint, famille: f)
+            for i in 1...2 { f = ajouterProche(Personne(prenom: "\(nom) \(i)"), a: h.id, lien: .enfant, famille: f, parentsChoisis: [e.id]) }
+        }
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 164)
+        XCTAssertEqual(croisements(r.traits), 0)
+        XCTAssertEqual(traitsTropProches(r.traits), 0)
+        XCTAssertEqual(traitsTraversantUnNom(r), [])
+        XCTAssertTrue(r.traits.allSatisfy { $0.de.1 >= 0 && $0.a.1 >= 0 }, "les ponts restent dans le dessin")
+    }
+
+    func testChildrenAddedBeforeAndAfterSpouseFormOneFamily() {
+        var (f, moi, _, _, _) = familleTest()
+        let a = Personne(prenom: "Insya")
+        f = ajouterProche(a, a: moi.id, lien: .enfant, famille: f)
+        let fatuma = Personne(prenom: "Fatuma", sexe: .femme)
+        f = ajouterProche(fatuma, a: moi.id, lien: .conjoint, famille: f)
+        let b = Personne(prenom: "Nassem")
+        f = ajouterProche(b, a: moi.id, lien: .enfant, famille: f, parentsChoisis: [fatuma.id])
+        let r = disposer(f, largeurNoeud: 104, ecartGeneration: 164)
+        let na = r.noeuds.first { $0.id == a.id }!, nb = r.noeuds.first { $0.id == b.id }!
+        let da = r.traits.first { abs($0.a.0 - na.x) < 0.01 && abs($0.a.1 - na.y) < 0.01 }!
+        let db = r.traits.first { abs($0.a.0 - nb.x) < 0.01 && abs($0.a.1 - nb.y) < 0.01 }!
+        XCTAssertEqual(da.de.1, db.de.1, accuracy: 0.01, "les deux enfants pendent à la même barre")
+        XCTAssertEqual(da.groupe, db.groupe)
     }
 }

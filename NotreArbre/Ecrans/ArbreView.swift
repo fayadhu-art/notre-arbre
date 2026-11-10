@@ -4,7 +4,7 @@ import ArbreCore
 /// Le dessin de l'arbre, réutilisé à l'écran et pour l'affiche PDF.
 struct ArbreDessin: View {
     static let largeur: Double = 104
-    static let ecart: Double = 150
+    static let ecart: Double = 164
     /// Couleurs des traits, une par famille, bien distinctes les unes des autres.
     static let palette: [Color] = [0x0F766E, 0xE4572E, 0x7C3AED, 0x2563EB, 0xD97706, 0xDB2777, 0x16A34A, 0x0891B2, 0x9D174D, 0x4D7C0F]
         .map { Color(hex: $0) }
@@ -26,6 +26,13 @@ struct ArbreDessin: View {
         let d = disposer(famille, largeurNoeud: Self.largeur, ecartGeneration: Self.ecart)
         ZStack(alignment: .topLeading) {
             // Traits de chaque famille, de la même couleur que sa capsule et sa carte : on suit qui est l'enfant de qui.
+            // Liseré clair sous tous les traits : ils se détachent du fond coloré.
+            Path { p in
+                for t in d.traits {
+                    p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
+                }
+            }
+            .stroke(Color.white.opacity(pourImpression ? 0 : 0.75), style: StrokeStyle(lineWidth: 7, lineCap: .round))
             ForEach(Array(Set(d.traits.map(\.groupe))).sorted(), id: \.self) { g in
                 let couleur = Self.palette[g % Self.palette.count]
                 Path { p in
@@ -33,13 +40,13 @@ struct ArbreDessin: View {
                         p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
                     }
                 }
-                .stroke(couleur.opacity(0.85), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                .stroke(couleur, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                 Path { p in
                     for t in d.traits where t.groupe == g && t.pointille {
                         p.move(to: CGPoint(x: t.de.0, y: t.de.1)); p.addLine(to: CGPoint(x: t.a.0, y: t.a.1))
                     }
                 }
-                .stroke(couleur.opacity(0.6), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
+                .stroke(couleur.opacity(0.7), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [2, 7]))
             }
 
             ForEach(d.noeuds, id: \.cle) { n in
